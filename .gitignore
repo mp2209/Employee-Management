@@ -1,2 +1,189 @@
+# ============================================================
+# UDPT - Unified .gitignore (covers both client/ and server/)
+# ============================================================
+
+# -----------------------------------------------------------
+# 1. IDE / Editor
+# -----------------------------------------------------------
 .idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.project
+.classpath
+.settings/
+nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/
+.factorypath
+.springBeans
+.sts4-cache/
+nb-configuration.xml
+*.code-workspace
+
+# IntelliJ scratch & console
+ Scratches/
+Scratches/
+ws/
+ws/
+
+# -----------------------------------------------------------
+# 2. Operating System
+# -----------------------------------------------------------
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# -----------------------------------------------------------
+# 3. Java / Maven / Spring Boot  (server/)
+# -----------------------------------------------------------
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+replay_pid*
+
+# Maven build output
+target/
+build/
+out/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# Maven misc
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+
+# Spring Boot
+*.original
+HELP.md
+
+# -----------------------------------------------------------
+# 4. Node / React  (client/)
+# -----------------------------------------------------------
+client/node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+.yarn-error
+.eslintcache
+.parcel-cache/
+.next/
+.cache/
+
+# Build outputs
+client/build/
+client/dist/
+client/out/
+client/coverage/
+client/.jest/
+
+# Logs (npm/yarn/pnpm)
+client/npm-debug.log*
+client/yarn-debug.log*
+client/yarn-error.log*
+client/pnpm-debug.log*
+client/lerna-debug.log*
+
+# Typescript
+*.tsbuildinfo
+
+# CRA testing
+coverage/
+junit.xml
+test-report.xml
+
+# -----------------------------------------------------------
+# 5. Environment variables / Secrets
+# -----------------------------------------------------------
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# Spring local config
+application-local.properties
+application-local.yml
+application-dev.properties
+application-prod.properties
+
+# -----------------------------------------------------------
+# 6. Logs
+# -----------------------------------------------------------
+logs/
+*.log
+log/
+spring.log
+spring-output.log
+server.log
+nohup.out
+
+# -----------------------------------------------------------
+# 7. Docker
+# -----------------------------------------------------------
+docker-compose.override.yml
+.docker/
+
+# -----------------------------------------------------------
+# 8. Database / Persistent data volumes
+# -----------------------------------------------------------
+*.sqlite
+*.sqlite3
+*.db
+mysql_data/
+mongo_data/
+postgres_data/
+
+# Uploaded user content
+uploads/
+file-uploads/
+media/
+static/uploads/
+
+# -----------------------------------------------------------
+# 9. Temporary / Backup / Swap
+# -----------------------------------------------------------
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+.cache/
+.tmp/
+.temp/
+*.orig
+*.rej
+
+# -----------------------------------------------------------
+# 10. Documentation builds
+# -----------------------------------------------------------
+docs/_build/
+site/
+_book/
+
+# -----------------------------------------------------------
+# 11. Local API captures  (mock data in client/mock-data/ is KEPT)
+# -----------------------------------------------------------
+api-responses/
+api-samples/local-*/
+captures/
