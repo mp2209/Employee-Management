@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
+import { userApi } from '../../services/apiClient';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
-import axios from 'axios';
 
 import Header from '../Header/Header';
 import Footer from '../Footer/Footer';
@@ -52,8 +52,7 @@ const CreateAccount = () => {
         };
 
         try {
-            const response = await axios.post('http://localhost:8081/api/users', data);
-            console.log('User created successfully:', response.data);
+            const response = await userApi.post('/', data);
             alert("Tạo tài khoản thành công!");
         } catch (error) {
             console.error('Error creating user:', error);

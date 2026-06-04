@@ -1,15 +1,19 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
+import { useAuth } from './auth';
 
 const ProtectedRoute = ({ element, roles }) => {
-  const role = localStorage.getItem('role');
+    const { isLoggedIn, role } = useAuth();
 
-  // Nếu role không nằm trong danh sách roles, chuyển hướng về trang chính
-  if (!roles.includes(role)) {
-    return <Navigate to="/" replace />;
-  }
+    if (!isLoggedIn) {
+        return <Navigate to="/" replace />;
+    }
 
-  return element;
+    if (Array.isArray(roles) && roles.length > 0 && !roles.includes(role)) {
+        return <Navigate to="/" replace />;
+    }
+
+    return element;
 };
 
 export default ProtectedRoute;

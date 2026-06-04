@@ -14,51 +14,53 @@ import Activities from './containers/Activities/Activities';
 import GivePoint from './containers/GivePoint/GivePoint';
 import Voucher from './containers/Voucher/Voucher';
 import ProtectedRoute from './services/ProtectedRoute';
+import ErrorBoundary from './services/ErrorBoundary';
+
+const withBoundary = (element) => <ErrorBoundary>{element}</ErrorBoundary>;
 
 
 function App() {
-  const role = localStorage.getItem('role');
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/profile" element={<Profile />} />
-      <Route path="/edit-profile" element={<EditProfile />} />
-      <Route path="/voucher" element={<Voucher />} />
+      <Route path="/" element={withBoundary(<HomePage />)} />
+      <Route path="/profile" element={withBoundary(<Profile />)} />
+      <Route path="/edit-profile" element={withBoundary(<EditProfile />)} />
+      <Route path="/voucher" element={withBoundary(<Voucher />)} />
       <Route
         path="/create-account"
         element={
-          <ProtectedRoute roles={['Manager']} element={<CreateAccount />} />
+          <ProtectedRoute roles={['Manager']} element={withBoundary(<CreateAccount />)} />
         }
       />
       <Route
         path="/approve"
-        element={<ProtectedRoute roles={['Manager']} element={<Approve />} />}
+        element={<ProtectedRoute roles={['Manager']} element={withBoundary(<Approve />)} />}
       />
       <Route
         path="/activities"
-        element={<ProtectedRoute roles={['Manager']} element={<Activities />} />}
+        element={<ProtectedRoute roles={['Manager']} element={withBoundary(<Activities />)} />}
       />
       <Route
         path="/leave"
-        element={<ProtectedRoute roles={['Employee']} element={<Leave />} />}
+        element={<ProtectedRoute roles={['Employee']} element={withBoundary(<Leave />)} />}
       />
       <Route
         path="/update-time-sheet"
         element={
-          <ProtectedRoute roles={['Employee']} element={<UpdateTimeSheet />} />
+          <ProtectedRoute roles={['Employee']} element={withBoundary(<UpdateTimeSheet />)} />
         }
       />
       <Route
         path="/work-from-home"
-        element={<ProtectedRoute roles={['Employee']} element={<WorkFromHome />} />}
+        element={<ProtectedRoute roles={['Employee']} element={withBoundary(<WorkFromHome />)} />}
       />
-      <Route 
-        path="/give-point" 
-        element={<ProtectedRoute roles={['Manager']} element={<GivePoint />} />}
+      <Route
+        path="/give-point"
+        element={<ProtectedRoute roles={['Manager']} element={withBoundary(<GivePoint />)} />}
       />
 
       <Route path="*" element={<Navigate to="/" replace />} />
-     
+
     </Routes>
   );
 }

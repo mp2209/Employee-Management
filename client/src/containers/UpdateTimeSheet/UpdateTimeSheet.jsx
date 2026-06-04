@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { requestApi } from '../../services/apiClient';
 import { Form, Button } from "react-bootstrap";
-import axios from 'axios';
 
 import Header from '../Header/Header';
 import RightSidebar from '../RightSidebar/RightSidebar';
@@ -43,7 +43,7 @@ const UpdateTimeSheet = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await axios.get(`http://localhost:8082/api/requests/update`);
+                const response = await requestApi.get(`/update`);
                 if (response.status === 200) {
                     setUpdateList(response.data);
                 } else {

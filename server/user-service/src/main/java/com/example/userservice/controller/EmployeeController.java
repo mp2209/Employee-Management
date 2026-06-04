@@ -2,7 +2,6 @@ package com.example.userservice.controller;
 
 import com.example.userservice.dto.EmployeeDTO;
 import com.example.userservice.service.EmployeeService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -14,8 +13,11 @@ import java.util.List;
 @RequestMapping("/api/employees")
 public class EmployeeController {
 
-    @Autowired
-    private EmployeeService employeeService;
+    private final EmployeeService employeeService;
+
+    public EmployeeController(EmployeeService employeeService) {
+        this.employeeService = employeeService;
+    }
 
     @GetMapping
     public List<EmployeeDTO> getAllEmployees() {

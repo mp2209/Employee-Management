@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useAuth } from '../../services/auth';
+import { employeeApi, pointApi } from '../../services/apiClient';
 import { Form, Button, Modal } from "react-bootstrap";
-import axios from 'axios';
 
 import Header from '../Header/Header';
 import RightSidebar from '../RightSidebar/RightSidebar';
@@ -15,6 +16,7 @@ const GivePoint = () => {
         'name': '',
         'point': 0,
     });
+    const { userId } = useAuth();
 
     const handleClose = () => setShow(false);
     const handleShow = () => setShow(true);
@@ -26,68 +28,59 @@ const GivePoint = () => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData({
-            ...formData,
-            [name]: value
-        });
+        setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
     useEffect(() => {
-        const fetchData = async () => {
+        let cancelled = false;
+        (async () => {
             try {
-                const employeeResponse = await axios.get(`http://localhost:8080/api/employees`);
-                const pointResponse = await axios.get(`http://localhost:8080/api/points`);
-                const loggedInUserId = localStorage.getItem('userid');
-
+                const [employeeResponse, pointResponse] = await Promise.all([
+                    employeeApi.get('/'),
+                    pointApi.get('/'),
+                ]);
+                if (cancelled) return;
                 if (employeeResponse.status === 200 && pointResponse.status === 200) {
                     const employees = employeeResponse.data;
                     const points = pointResponse.data;
-
-                    // Map points to employees and filter out the logged-in user
                     const updatedEmployees = employees
-                        .filter(employee => employee.id !== parseInt(loggedInUserId))
-                        .map(employee => {
-                            const pointRecord = points.find(point => point.uid === employee.id);
-                            return {
-                                ...employee,
-                                point: pointRecord ? pointRecord.totalPoint : 0
-                            };
+                        .filter((employee) => employee.id !== parseInt(userId, 10))
+                        .map((employee) => {
+                            const pointRecord = points.find((point) => point.uid === employee.id);
+                            return { ...employee, point: pointRecord ? pointRecord.totalPoint : 0 };
                         });
-
                     setEmployees(updatedEmployees);
-                } else {
-                    console.error("Error fetching data");
                 }
             } catch (error) {
-                console.error("Error during API request:", error);
+                if (!cancelled) {
+                    alert(`Error fetching data: ${error.message}`);
+                }
             }
-        };
-        fetchData();
-    }, []);
+        })();
+        return () => { cancelled = true; };
+    }, [userId]);
 
     const handleSubmit = async (event) => {
         event.preventDefault();
-        const managerId = localStorage.getItem('userid');
         const { id: employeeId } = curEmp;
 
         try {
-            const response = await axios.post(`http://localhost:8080/api/points/send`, null, {
+            const response = await pointApi.post(`/send`, null, {
                 params: {
-                    managerId,
+                    managerId: userId,
                     employeeId,
                     points: formData.point,
                     message: formData.message
                 }
             });
-            console.log('Response:', response.data);
             if (response.status === 200) {
                 alert('Gửi yêu cầu thành công');
             } else {
-                const message = response.data.message || 'An error occurred while updating';
+                const message = response.data?.message || 'An error occurred while updating';
                 alert(message);
             }
         } catch (error) {
-            const message = error.response?.data?.message || 'An error occurred while updating';
+            const message = error.response?.data?.message || error.message || 'An error occurred while updating';
             alert(message);
         }
         handleClose();

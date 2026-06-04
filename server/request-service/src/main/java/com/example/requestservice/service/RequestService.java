@@ -2,7 +2,6 @@ package com.example.requestservice.service;
 
 import com.example.requestservice.model.Request;
 import com.example.requestservice.repository.RequestRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -10,8 +9,11 @@ import java.util.List;
 @Service
 public class RequestService {
 
-    @Autowired
-    private RequestRepository requestRepository;
+    private final RequestRepository requestRepository;
+
+    public RequestService(RequestRepository requestRepository) {
+        this.requestRepository = requestRepository;
+    }
 
     public List<Request> getAllRequests() {
         return requestRepository.findAll();
@@ -43,11 +45,11 @@ public class RequestService {
     }
 
     public Request rejectRequest(String id, String status, String reasonReject) {
-        Request yeuCau = requestRepository.findById(id).orElse(null);
-        if (yeuCau != null) {
-            yeuCau.setStatus(status);
-            yeuCau.setReasonReject(reasonReject);
-            return requestRepository.save(yeuCau);
+        Request request = requestRepository.findById(id).orElse(null);
+        if (request != null) {
+            request.setStatus(status);
+            request.setReasonReject(reasonReject);
+            return requestRepository.save(request);
         }
         return null;
     }

@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react';
-import axios from 'axios';
+import { useAuth } from '../../services/auth';
+import { employeeApi } from '../../services/apiClient';
 import { CheckInContext } from '../../services/CheckInProvider';
 import { CheckOutContext } from '../../services/CheckOutProvider';
 import { Button } from 'react-bootstrap';
@@ -12,6 +13,7 @@ const RightSidebar = () => {
     const [timeStart, setTimeStart] = useState('');
     const [timeEnd, setTimeEnd] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
+    const { userId } = useAuth();
 
     const checkInInfo = {
         "Mã nhân viên": "123",
@@ -72,10 +74,9 @@ const RightSidebar = () => {
     };
 
     const handleCheckIn = async () => {
-        const userId = localStorage.getItem('userid');
         if (!checkInTime && userId) {
             try {
-                const response = await axios.post('http://localhost:8080/api/employees/checkin', null, {
+                const response = await employeeApi.post('/checkin', null, {
                     params: { userId }
                 });
                 if (response.status === 200) {
@@ -95,12 +96,11 @@ const RightSidebar = () => {
     };
 
     const handleCheckOut = async () => {
-        const userId = localStorage.getItem('userid');
         if (!checkInTime) {
             setErrorMessage('Bạn phải Check-in trước khi Check-out!');
         } else if (!checkOutTime && userId) {
             try {
-                const response = await axios.post('http://localhost:8080/api/employees/checkout', null, {
+                const response = await employeeApi.post('/checkout', null, {
                     params: { userId }
                 });
                 if (response.status === 200) {
@@ -121,7 +121,6 @@ const RightSidebar = () => {
     // Kiểm soát việc in ra console chỉ 1 lần duy nhất
     useEffect(() => {
         if (checkOutTime !== '' && !hasLoggedInfo) {
-            console.log("CheckIn Info: ", checkInInfo);
             setHasLoggedInfo(true); // Đánh dấu là đã log
         }
     }, [checkOutTime, hasLoggedInfo, setHasLoggedInfo]);

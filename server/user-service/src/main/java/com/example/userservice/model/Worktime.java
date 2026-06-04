@@ -7,7 +7,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @Entity
-@Table(uniqueConstraints = {@UniqueConstraint(columnNames = {"uid", "day"})})
+@Table(uniqueConstraints = {@UniqueConstraint(columnNames = {"user_id", "day"})})
 public class Worktime {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,7 +18,7 @@ public class Worktime {
     private String day;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "uid", referencedColumnName = "id")
+    @JoinColumn(name = "user_id", referencedColumnName = "id")
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)

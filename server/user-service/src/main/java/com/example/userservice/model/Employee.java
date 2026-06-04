@@ -31,6 +31,6 @@ public class Employee {
     private String status;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "uid", referencedColumnName = "id")
+    @JoinColumn(name = "user_id", referencedColumnName = "id")
     private User user;
 }

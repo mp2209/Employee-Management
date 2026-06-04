@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { requestApi } from '../../services/apiClient';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowRight, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
-import axios from 'axios';
 
 import Header from '../Header/Header';
 import RightSidebar from '../RightSidebar/RightSidebar';
 import Footer from '../Footer/Footer';
-import RequestDetail from './Request_Detail';
+import RequestDetail from './RequestDetail';
 import "./Approve.scss";
 import "../UpdateTimeSheet/UpdateTimeSheet.scss";
 
@@ -33,7 +33,7 @@ const Approve = () => {
     useEffect(() => {
         const fetchNotApprovedData = async () => {
             try {
-                const response = await axios.get('http://localhost:8082/api/requests/not-approved');
+                const response = await requestApi.get('/not-approved');
                 if (response.status === 200) {
                     setNotApprovedList(response.data);
                 } else {
@@ -49,7 +49,7 @@ const Approve = () => {
     useEffect(() => {
         const fetchApprovedData = async () => {
             try {
-                const response = await axios.get('http://localhost:8082/api/requests/approved');
+                const response = await requestApi.get('/approved');
                 if (response.status === 200) {
                     setApprovedList(response.data);
                 } else {

@@ -6,8 +6,6 @@ import com.example.userservice.model.Employee;
 import com.example.userservice.model.User;
 import com.example.userservice.repository.UserRepository;
 import com.example.userservice.repository.EmployeeRepository;
-import org.apache.commons.lang3.RandomStringUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -17,11 +15,17 @@ import java.util.stream.Collectors;
 @Service
 public class UserService {
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
+    private final EmployeeRepository employeeRepository;
+    private final BCryptPasswordEncoder passwordEncoder;
 
-    @Autowired
-    private EmployeeRepository employeeRepository;
+    public UserService(UserRepository userRepository,
+                       EmployeeRepository employeeRepository,
+                       BCryptPasswordEncoder passwordEncoder) {
+        this.userRepository = userRepository;
+        this.employeeRepository = employeeRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
 
     public boolean usernameExists(String username) {
         return userRepository.findByUsername(username).isPresent();
@@ -45,8 +49,9 @@ public class UserService {
             throw new IllegalArgumentException("UserDTO cannot be null");
         }
 
-        String defaultPassword = "1234";
-        BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+        // Default password is generated and must be changed on first login.
+        // Stored as BCrypt hash so it is never saved in plain text.
+        String defaultPassword = generateRandomPassword();
         String hashedPassword = passwordEncoder.encode(defaultPassword);
         userDTO.setPassword(hashedPassword);
 
@@ -55,12 +60,11 @@ public class UserService {
 
         if (usernameExists || identifyIdExists) {
             throw new IllegalArgumentException("Username or Identify ID already exists");
-        } else {
-            User user = convertToEntity(userDTO);
-            User savedUser = userRepository.save(user);
-
-            return convertToDTO(savedUser);
         }
+
+        User user = convertToEntity(userDTO);
+        User savedUser = userRepository.save(user);
+        return convertToDTO(savedUser);
     }
 
 
@@ -70,18 +74,34 @@ public class UserService {
 
 
     public UserDTO updateUser(String username, UserDTO userDTO) {
-        User existingUser = userRepository.findById(Long.valueOf(username)).orElse(null);
-        if (existingUser != null) {
-            existingUser.setPassword(userDTO.getPassword());
-            existingUser.setRole(userDTO.getRole());
-            existingUser.setStatus(userDTO.getStatus());
-            return convertToDTO(userRepository.save(existingUser));
-        }
-        return null;
+        return userRepository.findByUsername(username)
+                .map(existingUser -> {
+                    existingUser.setPassword(userDTO.getPassword() != null
+                            ? passwordEncoder.encode(userDTO.getPassword())
+                            : existingUser.getPassword());
+                    existingUser.setRole(userDTO.getRole());
+                    existingUser.setStatus(userDTO.getStatus());
+                    return convertToDTO(userRepository.save(existingUser));
+                })
+                .orElse(null);
     }
 
     public void deleteUser(String username) {
-        userRepository.deleteById(Long.valueOf(username));
+        userRepository.findByUsername(username)
+                .ifPresent(userRepository::delete);
+    }
+
+    private String generateRandomPassword() {
+        // 10-char alphanumeric password (uppercase + digits)
+        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        StringBuilder sb = new StringBuilder(10);
+        java.util.Random random = new java.security.SecureRandom() instanceof java.util.Random
+                ? new java.security.SecureRandom()
+                : new java.util.Random();
+        for (int i = 0; i < 10; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        return sb.toString();
     }
 
     private User convertToEntity(UserDTO userDTO) {

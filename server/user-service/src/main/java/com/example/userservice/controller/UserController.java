@@ -1,9 +1,11 @@
 package com.example.userservice.controller;
 
 import com.example.userservice.dto.*;
+import com.example.userservice.security.JwtService;
 import com.example.userservice.service.UserService;
 import com.example.userservice.service.EmployeeService;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -14,31 +16,45 @@ import java.util.List;
 @RequestMapping("/api/users")
 public class UserController {
 
-    @Autowired
-    private UserService userService;
+    private static final Logger logger = LoggerFactory.getLogger(UserController.class);
 
-    @Autowired
-    private EmployeeService employeeService;
+    private final UserService userService;
+    private final EmployeeService employeeService;
+    private final BCryptPasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
-    @Autowired
-    private BCryptPasswordEncoder passwordEncoder;
+    public UserController(UserService userService,
+                          EmployeeService employeeService,
+                          BCryptPasswordEncoder passwordEncoder,
+                          JwtService jwtService) {
+        this.userService = userService;
+        this.employeeService = employeeService;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+    }
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest loginRequest) {
+        if (loginRequest == null || loginRequest.getUsername() == null || loginRequest.getPassword() == null) {
+            return ResponseEntity.badRequest()
+                    .body(new LoginResponse("Username and password are required", null, null, null));
+        }
+
         UserDTO userDTO = userService.getUserByUsername(loginRequest.getUsername());
         if (userDTO != null && passwordEncoder.matches(loginRequest.getPassword(), userDTO.getPassword())) {
-            String token = "dummy-token";
+            String token = jwtService.generateToken(userDTO.getId(), userDTO.getUsername(), userDTO.getRole());
             LoginResponse response = new LoginResponse("Login successful", token, userDTO.getRole(), userDTO.getId());
             return ResponseEntity.ok(response);
-        } else {
-            LoginResponse response = new LoginResponse("Invalid username or password", null, null, null);
-            return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
         }
+
+        logger.warn("Failed login attempt for username '{}'", loginRequest.getUsername());
+        return new ResponseEntity<>(
+                new LoginResponse("Invalid username or password", null, null, null),
+                HttpStatus.UNAUTHORIZED);
     }
 
     @PostMapping
     public ResponseEntity<UserEmployeeResponse> createUser(@RequestBody UserEmployeeRequest request) {
-        // Kiểm tra xem username hoặc identifyId đã tồn tại hay chưa
         boolean usernameExists = userService.usernameExists(request.getUser().getUsername());
         boolean identifyIdExists = employeeService.identifyIdExists(request.getEmployee().getIdentifyId());
 
@@ -48,13 +64,9 @@ public class UserController {
             return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
         }
 
-        // Tạo User trước và lấy ID của nó
         UserDTO createdUser = userService.createUser(request.getUser());
-
-        // Sử dụng ID của User để tạo Employee
         EmployeeDTO createdEmployee = employeeService.createEmployee(request.getEmployee(), createdUser.getId());
 
-        // Trả về phản hồi kết hợp
         UserEmployeeResponse response = new UserEmployeeResponse(createdUser, createdEmployee);
         return ResponseEntity.ok(response);
     }
@@ -62,21 +74,17 @@ public class UserController {
     @GetMapping("/{username}")
     public ResponseEntity<UserDTO> getUserByUsername(@PathVariable String username) {
         UserDTO userDTO = userService.getUserByUsername(username);
-        if (userDTO != null) {
-            return ResponseEntity.ok(userDTO);
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+        return userDTO != null
+                ? ResponseEntity.ok(userDTO)
+                : ResponseEntity.notFound().build();
     }
 
     @PutMapping("/{username}")
     public ResponseEntity<UserDTO> updateUser(@PathVariable String username, @RequestBody UserDTO userDTO) {
         UserDTO updatedUser = userService.updateUser(username, userDTO);
-        if (updatedUser != null) {
-            return ResponseEntity.ok(updatedUser);
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+        return updatedUser != null
+                ? ResponseEntity.ok(updatedUser)
+                : ResponseEntity.notFound().build();
     }
 
     @DeleteMapping("/{username}")

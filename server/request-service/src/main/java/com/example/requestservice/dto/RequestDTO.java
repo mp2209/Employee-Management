@@ -9,7 +9,7 @@ public class RequestDTO {
     private String reason;
     private String status;
     private String timeEnd;
-    private String lyDoYeuCau;
-    private String thietBi;
-    private String trangThai;
+    private String requestReason;   // formerly lyDoYeuCau
+    private String device;          // formerly thietBi
+    private String requestStatus;   // formerly trangThai
 }

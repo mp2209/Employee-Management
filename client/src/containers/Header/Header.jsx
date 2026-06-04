@@ -1,88 +1,104 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { NavLink, Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { Form, FormControl, Button } from 'react-bootstrap';
 import { useAuth } from '../../services/auth';
-import axios from 'axios';
+import { userApi, employeeApi } from '../../services/apiClient';
 
 import './Header.scss';
 import avatar from '../../assets/avatar.png';
 
 const Header = () => {
-    const { isLoggedIn, login, logout } = useAuth();
+    const { isLoggedIn, role, userId, login, logout } = useAuth();
     const [fullName, setFullName] = useState('');
-    const [formData, setFormData] = useState({
-        username: '',
-        password: ''
-    });
+    const [formData, setFormData] = useState({ username: '', password: '' });
+    const [errorMessage, setErrorMessage] = useState('');
     const navigate = useNavigate();
 
-    const handleChange = (event) => {
+    const handleChange = useCallback((event) => {
         const { name, value } = event.target;
-        setFormData({
-            ...formData,
-            [name]: value
-        });
-    };
-
-    const role = localStorage.getItem('role');
+        setFormData((prev) => ({ ...prev, [name]: value }));
+    }, []);
 
     const handleSubmit = async (event) => {
         event.preventDefault();
+        setErrorMessage('');
         try {
-            // Sửa lại thành localhost
-            const response = await axios.post('http://localhost:8081/api/users/login', formData);
-            if (response.status === 200) {
-                localStorage.setItem('userid', response.data.id);
-                localStorage.setItem('role', response.data.role);
-                localStorage.setItem('isLoggedIn', true);
-                login();
+            const response = await userApi.post('/login', formData);
+            if (response.status === 200 && response.data?.token) {
+                login({
+                    role: response.data.role,
+                    userId: response.data.id,
+                    token: response.data.token,
+                });
                 navigate('/');
             } else {
-                const message = response.data.message || 'An error occurred while logging in';
-                alert(message);
+                setErrorMessage(response.data?.message || 'Login failed');
             }
         } catch (error) {
-            const message = error.response?.data?.message || 'An error occurred while logging in';
-            alert(message);
+            setErrorMessage(error.message || 'An error occurred while logging in');
         }
     };
 
     useEffect(() => {
-        const fetchFullName = async () => {
+        if (!isLoggedIn || !userId) {
+            return undefined;
+        }
+        let cancelled = false;
+        (async () => {
             try {
-                const userId = localStorage.getItem('userid');
-                const response = await axios.get(`http://localhost:8081/api/employees/name/${userId}`);
-                setFullName(response.data);
+                const { data } = await employeeApi.get(`/name/${userId}`);
+                if (!cancelled) setFullName(data);
             } catch (error) {
-                console.error('Error fetching full name:', error);
+                if (!cancelled) setFullName('');
             }
+        })();
+        return () => {
+            cancelled = true;
         };
+    }, [isLoggedIn, userId]);
 
-        fetchFullName();
-    }, []);
-
-    const handleLogout = async () => {
-        localStorage.setItem('userid', '');
-        localStorage.setItem('role', '');
-        localStorage.setItem('isLoggedIn', false);
+    const handleLogout = useCallback(() => {
+        logout();
         navigate('/');
-    }
+    }, [logout, navigate]);
+
+    const navLinks = useMemo(() => {
+        const links = [{ to: '/', label: 'Thông báo' }];
+        if (role === 'Employee') {
+            links.push(
+                { to: '/leave', label: 'Nghỉ phép' },
+                { to: '/update-time-sheet', label: 'Update Time-sheet' },
+                { to: '/work-from-home', label: 'Work from home' }
+            );
+        }
+        if (role === 'Manager') {
+            links.push(
+                { to: '/approve', label: 'Approve' },
+                { to: '/activities', label: 'Activities' }
+            );
+        }
+        links.push({ to: '/voucher', label: 'Voucher' });
+        if (role === 'Manager') {
+            links.push({ to: '/create-account', label: 'Create Account' });
+        }
+        return links;
+    }, [role]);
 
     return (
-        <header className='header-homepage'>
-            <div className='d-flex align-items-center text-center py-3 background-top-nav'>
-                <div className='header-top-nav'>
-                    <div className='logo-banner-frame'>
-                        <NavLink to='/'>
+        <header className="header-homepage">
+            <div className="d-flex align-items-center text-center py-3 background-top-nav">
+                <div className="header-top-nav">
+                    <div className="logo-banner-frame">
+                        <NavLink to="/">
                             <h2>Project</h2>
                         </NavLink>
                     </div>
                     {!isLoggedIn ? (
-                        <div className='header-login-frame'>
-                            <Form className='login-form' onSubmit={handleSubmit}>
+                        <div className="header-login-frame">
+                            <Form className="login-form" onSubmit={handleSubmit}>
                                 <FormControl
                                     type="text"
-                                    name='username'
+                                    name="username"
                                     placeholder="Username"
                                     className="mr-sm-2"
                                     value={formData.username}
@@ -91,73 +107,39 @@ const Header = () => {
                                 />
                                 <FormControl
                                     type="password"
-                                    name='password'
+                                    name="password"
                                     placeholder="Password"
                                     className="mr-sm-2"
                                     value={formData.password}
                                     onChange={handleChange}
                                     required
                                 />
-                                <Button type='submit' variant="warning">Login</Button>
+                                <Button type="submit" variant="warning">Login</Button>
+                                {errorMessage && (
+                                    <div className="text-danger mt-2 small">{errorMessage}</div>
+                                )}
                             </Form>
                         </div>
                     ) : (
                         <div>
                             <NavLink to="/profile">
                                 <div className="btn btn-light">
-                                    <p>
-                                        <b>{fullName}</b>
-                                    </p>
-                                    
+                                    <p><b>{fullName || 'Loading…'}</b></p>
                                 </div>
                             </NavLink>
-                            <a class="btn btn-dark logout-btn" onClick={handleLogout}>
+                            <button type="button" className="btn btn-dark logout-btn" onClick={handleLogout}>
                                 Đăng xuất
-                            </a>
+                            </button>
                         </div>
                     )}
                 </div>
             </div>
-            <div className='header-menu'>
-                <NavLink to='/' className='child-content'>
-                    Thông báo
-                </NavLink>
-                {role === "Employee" && (
-                    <NavLink to='/leave' className='child-content'>
-                        Nghỉ phép
+            <div className="header-menu">
+                {navLinks.map(({ to, label }) => (
+                    <NavLink key={to} to={to} className="child-content">
+                        {label}
                     </NavLink>
-                )}
-                {role === "Employee" && (
-                    <NavLink to='/update-time-sheet' className='child-content'>
-                        Update Time-sheet
-                    </NavLink>
-                )}
-                {role === "Employee" && (
-                    <NavLink to='/work-from-home' className='child-content'>
-                        Work from home
-                    </NavLink>
-                )}
-                {role === "Manager" && (
-                    <NavLink to='/approve' className='child-content'>
-                        Approve
-                    </NavLink>
-                )}
-                {role === "Manager" && (
-                    <NavLink to='/activities' className='child-content'>
-                        Activities
-                    </NavLink>
-                 )}
-                <NavLink to='/voucher' className='child-content'>
-                    Voucher
-                </NavLink>
-                {localStorage.getItem('role') == 'Manager' ? (
-                    <NavLink to='/create-account' className='child-content'>
-                        Create Account
-                    </NavLink>
-                ) : (
-                    <></>
-                )}
-                
+                ))}
             </div>
         </header>
     );

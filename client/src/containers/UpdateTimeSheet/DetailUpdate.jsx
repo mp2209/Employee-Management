@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
+import { requestApi } from '../../services/apiClient';
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
 import Form from 'react-bootstrap/Form';
-import axios from 'axios';
 
 import './DetailUpdate.scss';
 
@@ -13,7 +13,7 @@ export function DetailUpdate({ show, id, handleClose, handleConfirm }) {
         const fetchData = async () => {
             if (id) {
                 try {
-                    const response = await axios.get(`http://localhost:8080/api/requests/${id}`);
+                    const response = await requestApi.get(`/${id}`);
                     if (response.status === 200) {
                         setUpdateInfo(response.data);
                     } else {

@@ -2,7 +2,6 @@ package com.example.requestservice.controller;
 
 import com.example.requestservice.model.Request;
 import com.example.requestservice.service.RequestService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -11,8 +10,11 @@ import java.util.List;
 @RequestMapping("/api/requests")
 public class RequestController {
 
-    @Autowired
-    private RequestService requestService;
+    private final RequestService requestService;
+
+    public RequestController(RequestService requestService) {
+        this.requestService = requestService;
+    }
 
     @GetMapping
     public List<Request> getAllRequests() {

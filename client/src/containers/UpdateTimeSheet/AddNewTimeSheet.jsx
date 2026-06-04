@@ -1,17 +1,18 @@
 import React, { useEffect, useState } from "react";
+import { useAuth } from '../../services/auth';
+import { employeeApi, requestApi } from '../../services/apiClient';
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
 import Form from 'react-bootstrap/Form';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import TimePicker from 'react-bootstrap-time-picker';
-import axios from 'axios';
 
 import './AddNewTimeSheet.scss';
 
 export function AddNewTimeSheet({show, handleClose, handleConfirm}) {
     const [userData, setUserData] = useState('');
-    const userId = localStorage.getItem('userid');
+    const { userId } = useAuth();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -48,10 +49,9 @@ export function AddNewTimeSheet({show, handleClose, handleConfirm}) {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await axios.get(`http://localhost:8081/api/employees/${userId}`);
+                const response = await employeeApi.get(`/${userId}`);
                 if (response.status === 200) {
                     setUserData(response.data);
-                    console.log(response.data);
                 } else {
                     console.error("Error fetching user data");
                 }
@@ -101,12 +101,10 @@ export function AddNewTimeSheet({show, handleClose, handleConfirm}) {
             setErrorTimeEnd('Giờ kết thúc phải lớn hơn giờ bắt đầu.');
             return;
         }
-        console.log("Update Info: ", timeSheetInfo);
 
         // API gửi yêu cầu update
         try {
-            const response = await axios.post(`http://localhost:8082/api/requests`, timeSheetInfo);
-            console.log('Response:', response.data);
+            const response = await requestApi.post(`/`, timeSheetInfo);
             if (response.status === 200) {
                 alert('Gửi yêu cầu thành công');
                 setSendSuccessful(true);

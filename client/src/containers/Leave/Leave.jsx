@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { useAuth } from '../../services/auth';
+import { employeeApi, requestApi } from '../../services/apiClient';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { Form, Button } from "react-bootstrap";
@@ -6,7 +8,6 @@ import Container from 'react-bootstrap/Container';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import DetailLeave from './DetailLeave';
-import axios from 'axios';
 
 import Header from '../Header/Header';
 import RightSidebar from '../RightSidebar/RightSidebar';
@@ -18,7 +19,7 @@ const Leave = () => {
   const [userData, setUserData] = useState('');
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [selectedLeaveRequest, setSelectedLeaveRequest] = useState(null);
-  const userId = localStorage.getItem('userid');
+  const { userId } = useAuth();
   const today = new Date();
 
   const [isOpenDetail, setIsOpenDetail] = useState(false);
@@ -57,10 +58,9 @@ const Leave = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get(`http://localhost:8080/api/employees/${userId}`);
+        const response = await employeeApi.get(`/${userId}`);
         if (response.status === 200) {
           setUserData(response.data);
-          console.log(response.data);
         } else {
           console.error("Error fetching user data");
         }
@@ -71,11 +71,10 @@ const Leave = () => {
 
     const fetchLeaveList = async () => {
       try {
-        const response = await axios.get(`http://localhost:8080/api/requests/leave`);
+        const response = await requestApi.get(`/leave`);
         if (response.status === 200) {
           const filteredLeaveRequests = response.data.filter(request => request.employeeId === userId);
           setLeaveRequests(filteredLeaveRequests);
-          console.log(filteredLeaveRequests);
         } else {
           console.error("Error fetching leave requests");
         }
@@ -153,12 +152,10 @@ const Leave = () => {
       setErrorTimeEnd('Chọn ngày kết thúc lớn hơn ngày bắt đầu.');
       return;
     }
-    console.log("Leave Info: ", leaveInfo);
 
     // API
     try {
-      const response = await axios.post(`http://localhost:8082/api/requests`, leaveInfo);
-      console.log('Response:', response.data);
+      const response = await requestApi.post(`/`, leaveInfo);
       if (response.status === 200) {
         alert('Gửi yêu cầu thành công');
       } else {

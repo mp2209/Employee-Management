@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
+import { employeeApi, requestApi } from '../../services/apiClient';
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
 import Form from 'react-bootstrap/Form';
-import axios from 'axios';
 
 import './Request_Detail.scss';
 
@@ -18,11 +18,10 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
             if (id) {
                 try {
                     // API lấy thông tin chi tiết request
-                    const response = await axios.get(`http://localhost:8082/api/requests/${id}`);
+                    const response = await requestApi.get(`/${id}`);
                     if (response.status === 200) {
                         setRequestData(response.data);
                         setRejectionReason(response.data.reasonReject);
-                        console.log('Request Data:', response.data);
                     } else {
                         console.error("Error fetching user data");
                     }
@@ -45,7 +44,7 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
         try {
             if (requestData.requestType === "Update") {
                 // Call the /update-checkin-checkout API
-                const updateResponse = await axios.put('http://localhost:8081/api/employees/update-checkin-checkout', null, {
+                const updateResponse = await employeeApi.put('/update-checkin-checkout', null, {
                     params: {
                         userId: requestData.employeeId,
                         checkIn: requestData.timeStart,
@@ -53,7 +52,6 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
                         day: requestData.day
                     }
                 });
-                console.log('Update Response:', updateResponse.data);
                 if (updateResponse.status !== 200) {
                     const message = updateResponse.data.message || 'An error occurred while updating worktime';
                     alert(message);
@@ -62,12 +60,11 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
             }
 
             // API cập nhật trường Status của request thành "Chấp thuận"
-            const response = await axios.put(`http://localhost:8082/api/requests/${id}/approve`, null, {
+            const response = await requestApi.put(`/${id}/approve`, null, {
                 params: {
                     status: "Chấp thuận"
                 }
             });
-            console.log('Response:', response.data);
             if (response.status === 200) {
                 alert('Cập nhật thành công');
             } else {
@@ -88,13 +85,12 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
             setError('');
             setAccept("Từ chối");
             try {
-                const response = await axios.put(`http://localhost:8082/api/requests/${id}/reject`, null, {
+                const response = await requestApi.put(`/${id}/reject`, null, {
                     params: {
                         status: "Từ chối",
                         reasonReject: rejectionReason
                     }
                 });
-                console.log('Response:', response.data);
                 if (response.status === 200) {
                     alert('Cập nhật thành công');
                 } else {
