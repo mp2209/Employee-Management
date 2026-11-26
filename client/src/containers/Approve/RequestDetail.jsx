@@ -1,254 +1,150 @@
-import React, { useState, useEffect } from "react";
-import { employeeApi, requestApi } from '../../services/apiClient';
-import { REQUEST_STATUS, statusBadgeClass } from '../../services/requestStatus';
+import React, { useEffect, useState } from 'react';
+import Alert from 'react-bootstrap/Alert';
 import Button from 'react-bootstrap/Button';
-import Modal from 'react-bootstrap/Modal';
 import Form from 'react-bootstrap/Form';
+import Modal from 'react-bootstrap/Modal';
+import Spinner from 'react-bootstrap/Spinner';
+import { employeeApi, requestApi } from '../../services/apiClient';
+import { useToast } from '../../services/toast';
+import { REQUEST_STATUS, requestPeriod, requestTypeLabel } from '../../services/requestStatus';
+import StatusBadge from '../../components/StatusBadge';
+import Avatar from '../../components/Avatar';
 
-import './RequestDetail.scss';
-
-export function RequestDetail({show, id, handleClose, handleConfirm}) {
-
+/** Manager's review dialog: request details plus Approve / Reject. */
+const RequestDetail = ({ show, id, onHide, onDecided }) => {
+    const toast = useToast();
+    const [request, setRequest] = useState(null);
+    const [loadError, setLoadError] = useState('');
     const [rejectionReason, setRejectionReason] = useState('');
-    const [error, setError] = useState('');
-    const [requestData, setRequestData] = useState([]);
+    const [reasonError, setReasonError] = useState('');
+    const [busy, setBusy] = useState(false);
 
     useEffect(() => {
-        const fetchData = async () => {
-            if (id) {
-                try {
-                    // Load the request details
-                    const response = await requestApi.get(`/${id}`);
-                    if (response.status === 200) {
-                        setRequestData(response.data);
-                        setRejectionReason(response.data.reasonReject ?? '');
-                    } else {
-                        console.error("Error fetching user data");
-                    }
-                } catch (error) {
-                    console.error("Error during API request:", error);
-                }
-            }
-        };
-        fetchData();
-    }, [id]);
+        if (!show || !id) return undefined;
+        let cancelled = false;
+        setRequest(null);
+        setLoadError('');
+        setRejectionReason('');
+        setReasonError('');
+        requestApi.get(`/${id}`)
+            .then(({ data }) => !cancelled && setRequest(data))
+            .catch((error) => !cancelled && setLoadError(error.message));
+        return () => { cancelled = true; };
+    }, [show, id]);
 
-    const handleSubmit = async (event) => {
+    const isPending = request?.status === REQUEST_STATUS.PENDING;
+    const typeLabel = requestTypeLabel(request?.requestType);
+
+    const approve = async () => {
+        setBusy(true);
         try {
-            if (requestData.requestType === "Update") {
-                // Call the /update-checkin-checkout API
-                const updateResponse = await employeeApi.put('/update-checkin-checkout', null, {
+            if (request.requestType === 'Update') {
+                // An approved timesheet correction rewrites that day's attendance.
+                await employeeApi.put('/update-checkin-checkout', null, {
                     params: {
-                        userId: requestData.employeeId,
-                        checkIn: requestData.timeStart,
-                        checkOut: requestData.timeEnd,
-                        day: requestData.day
-                    }
+                        userId: request.employeeId,
+                        day: request.day,
+                        checkIn: request.timeStart,
+                        checkOut: request.timeEnd,
+                    },
                 });
-                if (updateResponse.status !== 200) {
-                    const message = updateResponse.data.message || 'An error occurred while updating worktime';
-                    alert(message);
-                    return;
-                }
             }
-
-            const response = await requestApi.put(`/${id}/approve`);
-            if (response.status === 200) {
-                alert('Updated successfully');
-            } else {
-                const message = response.data.message || 'An error occurred while updating';
-                alert(message);
-            }
+            await requestApi.put(`/${id}/approve`);
+            toast.success(`Approved ${typeLabel.toLowerCase()} request from ${request.employeeName}`);
+            onDecided();
         } catch (error) {
-            const message = error.response?.data?.message || 'An error occurred while updating';
-            alert(message);
-        }
-        handleConfirm();
-    };
-
-    const handleReject = async (event) => {
-        if (rejectionReason.trim() === '') {
-            setError('Please enter a rejection reason.');
-        } else {
-            setError('');
-            try {
-                const response = await requestApi.put(`/${id}/reject`, null, {
-                    params: {
-                        reasonReject: rejectionReason
-                    }
-                });
-                if (response.status === 200) {
-                    alert('Updated successfully');
-                } else {
-                    const message = response.data.message || 'An error occurred while updating';
-                    alert(message);
-                }
-            } catch (error) {
-                const message = error.response?.data?.message || 'An error occurred while updating';
-                alert(message);
-            }
-            handleClose();
+            toast.error(error.message);
+        } finally {
+            setBusy(false);
         }
     };
 
+    const reject = async () => {
+        if (!rejectionReason.trim()) {
+            setReasonError('Please enter a reason for rejecting this request.');
+            return;
+        }
+        setBusy(true);
+        try {
+            await requestApi.put(`/${id}/reject`, null, { params: { reasonReject: rejectionReason.trim() } });
+            toast.success(`Rejected ${typeLabel.toLowerCase()} request from ${request.employeeName}`);
+            onDecided();
+        } catch (error) {
+            toast.error(error.message);
+        } finally {
+            setBusy(false);
+        }
+    };
 
     return (
-        <Modal show={show} onHide={handleClose} size='lg'>
+        <Modal show={show} onHide={onHide} centered>
             <Modal.Header closeButton>
-                <Modal.Title>Request details</Modal.Title>
+                <Modal.Title>{isPending ? 'Review request' : 'Request details'}</Modal.Title>
             </Modal.Header>
-            <Modal.Body className="d-flex flex-column">
-                <div className="first-info">
-                    <Form className="d-flex justify-content-between flex-wrap">
-                        <Form.Group className="mb-3 custom-width">
-                            <Form.Label>Employee ID:</Form.Label>
-                            <Form.Control
-                                type="text"
-                                value={requestData.employeeId}
-                                autoFocus
-                                disabled
-                                // style={{ backgroundColor: '#fff', color: '#000' }}
-                            />
-                        </Form.Group>
-                        <Form.Group className="mb-3 custom-width">
-                            <Form.Label>Full name:</Form.Label>
-                            <Form.Control
-                                type="text"
-                                value={requestData.employeeName}
-                                autoFocus
-                                disabled
-                                // style={{ backgroundColor: '#fff', color: '#000' }}
-                            />
-                        </Form.Group>
-                        <Form.Group className="mb-3 custom-width">
-                            <Form.Label>Request type:</Form.Label>
-                            <Form.Control
-                                type="text"
-                                value={requestData.requestType}
-                                disabled
-                                // style={{ backgroundColor: '#fff', color: '#000' }}
-                            />
-                        </Form.Group>
-                        <Form.Group className="mb-3 custom-width">
-                            <Form.Label>Status:</Form.Label>
-                            <Form.Control
-                                type="text"
-                                value={requestData.status}
-                                disabled
-                                className={statusBadgeClass(requestData.status)}
-                            />
-                        </Form.Group>
-                    </Form>
-                </div>
-                <div>
-                    <Form className="d-flex justify-content-between flex-wrap">
-                        {requestData.requestType !== 'Update' ? (
-                        <>
-                            <Form.Group className="mb-3 custom-width">
-                                <Form.Label>Start:</Form.Label>
-                                <Form.Control
-                                    type="text"
-                                    value={requestData.timeStart}
-                                    autoFocus
-                                    disabled
-                                    style={{ backgroundColor: '#fff', color: '#000' }}
-                                />
+            <Modal.Body>
+                {!request ? (
+                    loadError
+                        ? <Alert variant="danger" className="mb-0">{loadError}</Alert>
+                        : <div className="text-center py-4"><Spinner animation="border" size="sm" /></div>
+                ) : (
+                    <>
+                        <div className="d-flex align-items-center gap-3 mb-4">
+                            <Avatar name={request.employeeName} />
+                            <div>
+                                <div className="fw-semibold text-body-emphasis">{request.employeeName}</div>
+                                <div className="small text-body-secondary">{typeLabel}</div>
+                            </div>
+                            <div className="ms-auto"><StatusBadge status={request.status} /></div>
+                        </div>
+                        <dl className="detail-list">
+                            <dt>{request.requestType === 'Update' ? 'Date and time' : 'Dates'}</dt>
+                            <dd>{requestPeriod(request)}</dd>
+                            {request.reasonRequest && (
+                                <>
+                                    <dt>Reason</dt>
+                                    <dd>{request.reasonRequest}</dd>
+                                </>
+                            )}
+                            {request.device && (
+                                <>
+                                    <dt>Equipment needed</dt>
+                                    <dd>{request.device}</dd>
+                                </>
+                            )}
+                            {!isPending && request.reasonReject && (
+                                <>
+                                    <dt>Rejection reason</dt>
+                                    <dd>{request.reasonReject}</dd>
+                                </>
+                            )}
+                        </dl>
+                        {isPending && (
+                            <Form.Group className="mt-4" controlId="rejection-reason">
+                                <Form.Label>
+                                    Rejection reason <span className="fw-normal text-body-secondary">(only if rejecting)</span>
+                                </Form.Label>
+                                <Form.Control as="textarea" rows={2} value={rejectionReason} isInvalid={!!reasonError}
+                                              onChange={(e) => {
+                                                  setRejectionReason(e.target.value);
+                                                  setReasonError('');
+                                              }} />
+                                <Form.Control.Feedback type="invalid">{reasonError}</Form.Control.Feedback>
                             </Form.Group>
-                            <Form.Group className="mb-3 custom-width">
-                                <Form.Label>End:</Form.Label>
-                                <Form.Control
-                                    type="text"
-                                    value={requestData.timeEnd}
-                                    autoFocus
-                                    disabled
-                                    style={{ backgroundColor: '#fff', color: '#000' }}
-                                />
-                            </Form.Group>
-                        </>
-                        ) : (
-                        <>
-                            <Form.Group className="mb-3 w-25">
-                                <Form.Label>Date:</Form.Label>
-                                <Form.Control
-                                    type="text"
-                                    value={requestData.day}
-                                    autoFocus
-                                    disabled
-                                    style={{ backgroundColor: '#fff', color: '#000' }}
-                                />
-                            </Form.Group>
-                            <Form.Group className="mb-3 w-25">
-                                <Form.Label>Start:</Form.Label>
-                                <Form.Control
-                                    type="text"
-                                    value={requestData.timeStart}
-                                    autoFocus
-                                    disabled
-                                    style={{ backgroundColor: '#fff', color: '#000' }}
-                                />
-                            </Form.Group>
-                            <Form.Group className="mb-3 w-25">
-                                <Form.Label>End:</Form.Label>
-                                <Form.Control
-                                    type="text"
-                                    value={requestData.timeEnd}
-                                    autoFocus
-                                    disabled
-                                    style={{ backgroundColor: '#fff', color: '#000' }}
-                                />
-                            </Form.Group>
-                        </>
                         )}
-                        <Form.Group className="mb-3 w-75">
-                            <Form.Label>Reason:</Form.Label>
-                            <Form.Control
-                                as="textarea"
-                                value={requestData.reasonRequest}
-                                disabled
-                                style={{ backgroundColor: '#fff', color: '#000' }}
-                            />
-                        </Form.Group>
-                        <Form.Group className="mb-3 w-75">
-                            <Form.Label>Requested equipment:</Form.Label>
-                            <Form.Control
-                                as="textarea"
-                                value={requestData.device}
-                                disabled
-                                style={{ backgroundColor: '#fff', color: '#000' }}
-                            />
-                        </Form.Group>
-                        <Form.Group className="mb-3 w-75">
-                            <Form.Label>Rejection reason:</Form.Label>
-                            <Form.Control
-                                as="textarea"
-                                placeholder="Rejection reason"
-                                value={rejectionReason}
-                                onChange={(e) => setRejectionReason(e.target.value)}
-                                disabled={requestData.status !== REQUEST_STATUS.PENDING}
-                                style={{
-                                    backgroundColor: requestData.status !== REQUEST_STATUS.PENDING ? '' : '#fff',
-                                    color: requestData.status !== REQUEST_STATUS.PENDING ? '#000' : '#888',
-                                    cursor: requestData.status !== REQUEST_STATUS.PENDING ? 'not-allowed' : 'text'
-                                }}
-                            />
-                        </Form.Group>
-                        {error && <div className="text-danger">{error}</div>}
-                    </Form>
-                </div>
+                    </>
+                )}
             </Modal.Body>
             <Modal.Footer>
-                <Button variant="secondary" onClick={handleClose}>
-                    Close
-                </Button>
-                <Button variant="danger" className={`${requestData.status !== REQUEST_STATUS.PENDING ? 'd-none' : ''}`} onClick={handleReject}>
-                    Reject
-                </Button>
-                <Button variant="primary" className={`${requestData.status !== REQUEST_STATUS.PENDING ? 'd-none' : ''}`} onClick={handleSubmit} disabled={rejectionReason !== ''}>
-                    Approve
-                </Button>
+                <Button variant="outline-secondary" onClick={onHide}>Close</Button>
+                {isPending && (
+                    <>
+                        <Button variant="outline-danger" onClick={reject} disabled={busy}>Reject</Button>
+                        <Button onClick={approve} disabled={busy || rejectionReason.trim() !== ''}>Approve</Button>
+                    </>
+                )}
             </Modal.Footer>
         </Modal>
-     );
-}
+    );
+};
 
 export default RequestDetail;

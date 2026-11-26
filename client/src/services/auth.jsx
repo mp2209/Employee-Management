@@ -41,7 +41,8 @@ export const AuthProvider = ({ children }) => {
             ...prev,
             isLoggedIn: true,
             role: role ?? prev.role,
-            userId: userId ?? prev.userId,
+            // Always a string, as it is after a reload (read back from localStorage).
+            userId: userId != null ? String(userId) : prev.userId,
             token: token ?? prev.token,
         }));
     }, []);

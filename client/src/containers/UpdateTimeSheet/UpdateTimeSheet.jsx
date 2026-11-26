@@ -1,137 +1,102 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
+import Button from 'react-bootstrap/Button';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPlus, faUserClock } from '@fortawesome/free-solid-svg-icons';
+import { useAuth } from '../../services/auth';
 import { requestApi } from '../../services/apiClient';
-import { statusBadgeClass } from '../../services/requestStatus';
-import { Button } from "react-bootstrap";
-
-import Header from '../Header/Header';
-import RightSidebar from '../RightSidebar/RightSidebar';
-import Footer from '../Footer/Footer';
+import { useToast } from '../../services/toast';
+import { formatDate, formatTime } from '../../services/format';
+import PageHeader from '../../components/PageHeader';
+import StatusBadge from '../../components/StatusBadge';
+import EmptyState from '../../components/EmptyState';
+import RequestInfoModal from '../../components/RequestInfoModal';
 import AddNewTimeSheet from './AddNewTimeSheet';
-import DetailUpdate from './DetailUpdate';
-import './UpdateTimeSheet.scss';
 
 const UpdateTimeSheet = () => {
-    const [isOpenAdd, setIsOpenAdd] = useState(false);
-    const [isOpenDetail, setIsOpenDetail] = useState(false);
-    const [requestID, setRequestID] = useState('');
-    const [updateList, setUpdateList] = useState([]);
+    const { userId } = useAuth();
+    const { employee } = useOutletContext();
+    const toast = useToast();
+    const [requests, setRequests] = useState([]);
+    const [showAdd, setShowAdd] = useState(false);
+    const [detail, setDetail] = useState({ show: false, request: null });
 
-    const handleShowAdd = () => {
-        setIsOpenAdd(true);
-    }
-
-    const handleCloseAdd = () => {
-        setIsOpenAdd(false);
-    }
-
-    const handleConfirmAdd = () => {
-        handleCloseAdd();
-    }
-
-    const handleShowDetail = (id) => {
-        setRequestID(id);
-        setIsOpenDetail(true);
-    }
-
-    const handleCloseDetail = () => {
-        setIsOpenDetail(false);
-    }
-
-    const handleConfirmDetail = () => {
-        handleCloseDetail();
-    }
+    const loadRequests = useCallback(async () => {
+        try {
+            const { data } = await requestApi.get('/update');
+            setRequests(data.filter((request) => request.employeeId === userId).reverse());
+        } catch (error) {
+            toast.error(`Could not load your corrections: ${error.message}`);
+        }
+    }, [userId, toast]);
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const response = await requestApi.get(`/update`);
-                if (response.status === 200) {
-                    setUpdateList(response.data);
-                } else {
-                    console.error("Error fetching user data");
-                }
-            } catch (error) {
-                console.error("Error during API request:", error);
-            }
-        };
-        fetchData();
-    }, []); // Empty dependency array to run only once
+        loadRequests();
+    }, [loadRequests]);
 
     return (
-        <React.Fragment>
-            <Header />
-            <section>
-                <div className='content-frame'>
-                    <div className="d-flex align-items-center m-3 update-timesheet-header">
-                        <div className="col-md-6">
-                            <div className="mb-3">
-                                <h5 className="card-title">Update Time-sheet List</h5>
-                            </div>
-                        </div>
-                        <div className="col-md-6">
-                            <div className="d-flex flex-wrap align-items-center justify-content-end gap-2 mb-3">
-                                <Button onClick={handleShowAdd}>New request</Button>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="list-frame">
-                        <div className="col-lg-12">
-                            <div className="update-timesheet-history">
-                                <table className="table uts-table table-nowrap align-middle table-borderless">
-                                    <thead className='sticky-header'>
-                                    <tr>
-                                        <th scope="col">Date</th>
-                                        <th scope="col">Start</th>
-                                        <th scope="col">End</th>
-                                        <th scope="col">Status</th>
-                                        <th scope="col">Details</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    {updateList.length > 0 ? (
-                                        updateList.map((request) => (
-                                            <tr key={request.id}>
-                                                <td>{request.day}</td>
-                                                <td>{request.timeStart}</td>
-                                                <td>{request.timeEnd}</td>
-                                                <td>
-                            <span className={`badge ${statusBadgeClass(request.status)} mb-0`}>
-                                {request.status}
-                            </span>
-                                                </td>
-                                                <td>
-                                                    <span className='text-decoration-underline detail'
-                                                          onClick={() => handleShowDetail(request.id)}>
-                                                        View
-                                                      </span>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan="5">No data</td>
-                                        </tr>
-                                    )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
+        <>
+            <PageHeader
+                title="Timesheet corrections"
+                subtitle="Fix a missed or wrong check-in / check-out. Your manager approves each correction."
+                actions={(
+                    <Button onClick={() => setShowAdd(true)}>
+                        <FontAwesomeIcon icon={faPlus} /> New correction
+                    </Button>
+                )}
+            />
+
+            <div className="card">
+                <div className="card-header">
+                    <h2 className="card-title">My corrections</h2>
                 </div>
-                <RightSidebar />
-            </section>
-            <Footer />
-            <AddNewTimeSheet show={isOpenAdd}
-                             handleClose={handleCloseAdd}
-                             handleConfirm={handleConfirmAdd}
-            />
-            <DetailUpdate show={isOpenDetail}
-                          id={requestID}
-                          handleClose={handleCloseDetail}
-                          handleConfirm={handleConfirmDetail}
-            />
-        </React.Fragment>
+                {requests.length === 0 ? (
+                    <EmptyState icon={faUserClock} title="No corrections yet">
+                        Use “New correction” if a check-in or check-out is missing or wrong.
+                    </EmptyState>
+                ) : (
+                    <div className="table-responsive">
+                        <table className="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Check-in</th>
+                                    <th>Check-out</th>
+                                    <th>Status</th>
+                                    <th aria-label="Actions" />
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {requests.map((request) => (
+                                    <tr key={request.id}>
+                                        <td className="text-nowrap">{formatDate(request.day)}</td>
+                                        <td>{formatTime(request.timeStart)}</td>
+                                        <td>{formatTime(request.timeEnd)}</td>
+                                        <td><StatusBadge status={request.status} /></td>
+                                        <td className="text-end">
+                                            <Button size="sm" variant="outline-secondary"
+                                                    onClick={() => setDetail({ show: true, request })}>
+                                                View
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            <AddNewTimeSheet show={showAdd} employee={employee}
+                             onHide={() => setShowAdd(false)}
+                             onSubmitted={() => {
+                                 setShowAdd(false);
+                                 loadRequests();
+                             }} />
+            <RequestInfoModal show={detail.show} request={detail.request}
+                              onHide={() => setDetail((prev) => ({ ...prev, show: false }))} />
+        </>
     );
-}
+};
 
 export default UpdateTimeSheet;

@@ -1,225 +1,115 @@
-import React, { useEffect, useState } from 'react';
-import { useAuth } from '../../services/auth';
-import { employeeApi, requestApi } from '../../services/apiClient';
+import React, { useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
+import DatePicker from 'react-datepicker';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
+import { useAuth } from '../../services/auth';
+import { requestApi } from '../../services/apiClient';
+import { useToast } from '../../services/toast';
+import { startOfToday, toApiDateTime } from '../../services/format';
+import PageHeader from '../../components/PageHeader';
 
-import Header from '../Header/Header';
-import RightSidebar from '../RightSidebar/RightSidebar';
-import Footer from '../Footer/Footer';
-import './WorkFromHome.scss';
+const emptyForm = () => ({ date: startOfToday(), reason: '', needsEquipment: false, equipment: '' });
 
 const WorkFromHome = () => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+    const { userId } = useAuth();
+    const { employee } = useOutletContext();
+    const toast = useToast();
+    const [form, setForm] = useState(emptyForm);
+    const [dateError, setDateError] = useState('');
+    const [submitting, setSubmitting] = useState(false);
 
-  const [errorTimeStart, setErrorTimeStart] = useState('');
-  const [equipment, setEquipment] = useState(false);
+    const update = (changes) => setForm((prev) => ({ ...prev, ...changes }));
 
-  const [userData, setUserData] = useState('');
-  const { userId } = useAuth();
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+        if (!form.date || form.date < startOfToday()) {
+            setDateError('The date cannot be in the past.');
+            return;
+        }
+        setDateError('');
+        const end = new Date(form.date);
+        end.setHours(23, 59, 59, 0);
 
-  const [wfhData, setWFHData] = useState({
-    time_start: today,
-    time_end: today,
-    reason: '',
-    equipmentList: null
-  });
-
-  const formatDateTime = (date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-  };
-
-  // Load the employee profile
-  useEffect(() => {
-    const fetchData = async () => {
+        setSubmitting(true);
         try {
-            const response = await employeeApi.get(`/${userId}`);
-            if (response.status === 200) {
-                setUserData(response.data);
-            } else {
-                console.error("Error fetching user data");
-            }
+            await requestApi.post('', {
+                employeeId: String(userId),
+                employeeName: employee?.name,
+                requestType: 'WFH',
+                timeStart: toApiDateTime(form.date),
+                timeEnd: toApiDateTime(end),
+                reasonRequest: form.reason.trim(),
+                device: form.needsEquipment ? form.equipment.trim() : null,
+            });
+            toast.success('Work-from-home request submitted');
+            setForm(emptyForm());
         } catch (error) {
-            console.error("Error during API request:", error);
+            toast.error(error.message);
+        } finally {
+            setSubmitting(false);
         }
     };
-    fetchData();
-  }, [userId]);
 
-  const handleDateChange = (date, name) => {
-    const startDate = new Date(date);
-    startDate.setHours(0, 0, 0, 0);
+    return (
+        <>
+            <PageHeader title="Work from home" subtitle="Ask your manager to work remotely for a day." />
 
-    const endDate = new Date(date);
-    endDate.setHours(23, 59, 59, 999);
+            <div className="row">
+                <div className="col-lg-8 col-xl-7">
+                    <div className="card">
+                        <div className="card-body">
+                            <Form onSubmit={handleSubmit}>
+                                <Form.Group className="mb-3">
+                                    <Form.Label htmlFor="wfh-date">Date</Form.Label>
+                                    <DatePicker id="wfh-date" selected={form.date} minDate={startOfToday()}
+                                                onChange={(date) => update({ date })}
+                                                dateFormat="dd/MM/yyyy" className="form-control" required />
+                                    {dateError && <div className="invalid-feedback d-block">{dateError}</div>}
+                                </Form.Group>
 
-    setWFHData({
-      ...wfhData,
-      time_start: startDate,
-      time_end: endDate
-    });
-  };
+                                <Form.Group className="mb-4" controlId="wfh-reason">
+                                    <Form.Label>Reason</Form.Label>
+                                    <Form.Control as="textarea" rows={3} required
+                                                  placeholder="e.g. Waiting for a delivery at home"
+                                                  value={form.reason} onChange={(e) => update({ reason: e.target.value })} />
+                                </Form.Group>
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setWFHData({
-        ...wfhData,
-        [name]: value
-    });
-  };
+                                <Form.Group className="mb-3">
+                                    <Form.Label as="div">Equipment</Form.Label>
+                                    <Form.Check type="radio" id="wfh-equipment-own" name="wfh-equipment"
+                                                label="I already have the equipment I need"
+                                                checked={!form.needsEquipment}
+                                                onChange={() => update({ needsEquipment: false })} />
+                                    <Form.Check type="radio" id="wfh-equipment-need" name="wfh-equipment"
+                                                label="I need equipment from the company"
+                                                checked={form.needsEquipment}
+                                                onChange={() => update({ needsEquipment: true })} />
+                                </Form.Group>
 
-  const wfhInfo = {
-    "employeeId": userData.id, 
-    "employeeName": userData.name,
-    "requestType": "WFH", 
-    "timeStart": formatDateTime(new Date(wfhData.time_start)),
-    "timeEnd": formatDateTime(new Date(wfhData.time_end)),
-    "reasonRequest": wfhData.reason,
-    "device": wfhData.equipmentList
-  }
+                                {form.needsEquipment && (
+                                    <Form.Group className="mb-3" controlId="wfh-equipment-list">
+                                        <Form.Label>Equipment needed</Form.Label>
+                                        <Form.Control as="textarea" rows={2} required
+                                                      placeholder="e.g. Laptop stand, external monitor"
+                                                      value={form.equipment}
+                                                      onChange={(e) => update({ equipment: e.target.value })} />
+                                        <Form.Text>Separate items with commas.</Form.Text>
+                                    </Form.Group>
+                                )}
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    const timeStart = new Date(wfhData.time_start);
-    setErrorTimeStart('');
-    if (timeStart < today) {
-      setErrorTimeStart('The date cannot be in the past.');
-      return;
-    }
-    // Submit the request
-    try {
-      const response = await requestApi.post('', wfhInfo);
-      if (response.status === 200) {
-          alert('Request submitted');
-      } else {
-          const message = response.data.message || 'An error occurred while login';
-          alert(message);
-      }
-    } catch (error) {
-        const message = error.response?.data?.message || 'An error occurred while update';
-        alert(message)
-    }
-  };
-
-  return (
-    <React.Fragment>
-      <Header />
-      <section>
-        <div className='content-frame'>
-          <div className="d-flex align-items-center justify-content-center m-3 wfh-header">
-            <div className="mb-3">
-                <h5 className="card-title">Work From Home Form</h5>
+                                <div className="pt-2">
+                                    <Button type="submit" disabled={submitting || !employee}>
+                                        {submitting ? 'Submitting…' : 'Submit request'}
+                                    </Button>
+                                </div>
+                            </Form>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
-          <form action="#" onSubmit={(e) => handleSubmit(e)}>
-            <div className='wfh-info'>
-              <div className='wfh-info-content'>
-                <Form>
-                  <Form.Group className="mb-3">
-                    <Form.Label className='fw-bold'>Full name:</Form.Label>
-                    <Form.Control
-                        type="text"
-                        value={userData.name}
-                        disabled
-                    />
-                  </Form.Group>
-                  <Form.Group className="mb-3">
-                    <Form.Label className='fw-bold'>Department:</Form.Label>
-                    <Form.Control
-                        type="text"
-                        value={userData.department}
-                        disabled
-                    />
-                  </Form.Group>
-                  <Form.Group className="mb-3">
-                    <Form.Label className='fw-bold'>Phone number:</Form.Label>
-                    <Form.Control
-                        type="text"
-                        value={userData.phoneNumber}
-                        disabled
-                    />
-                  </Form.Group>
-                  <Form.Group className="mb-3">
-                    <Form.Label className="row fw-bold">Date:</Form.Label>
-                    <DatePicker
-                        name = 'time_start'
-                        selected={wfhData.time_start}
-                        onChange={(date) => handleDateChange(date, 'time_start')}
-                        dateFormat="dd/MM/yyyy"
-                        className="form-control"
-                        required
-                    />
-                    {errorTimeStart && <div className="text-danger mx-3">{errorTimeStart}</div>}
-                  </Form.Group>
-                  <Form.Group className="mb-3">
-                    <Form.Label className="row fw-bold">Reason:</Form.Label>
-                    <Form.Control
-                      name = 'reason'
-                      as="textarea"
-                      rows="3"
-                      placeholder="Reason"
-                      onChange={handleChange}
-                      required
-                      style={{ backgroundColor: '#fff', color: '#000' }}
-                    />
-                  </Form.Group>
-                  <Form.Group className="mb-3">
-                    <Form.Label className="row fw-bold">Equipment:</Form.Label>
-                    <div className='mb-2'>
-                      <input className="form-check-input me-2" type="radio" id="false"
-                            onClick={() => setEquipment(false)}
-                            checked={equipment === false}/>
-                      <label className="form-check-label" htmlFor = "false" onClick={() => setEquipment(false)}>
-                        I already have the equipment I need
-                      </label>
-                    </div>
-                    <div className='mt-2'>
-                      <input className="form-check-input me-2" type="radio" id="true"
-                            onClick={() => setEquipment(true)}
-                            checked={equipment === true}/>
-                      <label className="form-check-label" htmlFor = "true">
-                        I need equipment from the company
-                      </label>
-                    </div>
-                  </Form.Group>
-                  <Form.Group className="mb-3">
-                    <Form.Label className="row fw-bold">Equipment you need to work from home:</Form.Label>
-                    <Form.Control
-                      name = 'equipmentList'
-                      as="textarea"
-                      rows="3"
-                      placeholder="Equipment list, separated by commas"
-                      onChange={handleChange}
-                      disabled={!equipment}
-                      required
-                      // style={{ backgroundColor: '#fff', color: '#000' }}
-                      style={{
-                        backgroundColor: equipment ? '#fff' : '',
-                        color: equipment ? '#000' : '#888',
-                        cursor: equipment ? 'text' : 'not-allowed'
-                      }}
-                    />
-                  </Form.Group>
-                </Form>
-                <Button type='submit'>Submit</Button>
-              </div>
-          </div>
-        </form>
-        </div>
-        <RightSidebar />
-      </section>
-      <Footer />
-    </React.Fragment>
-  );
-}
+        </>
+    );
+};
 
 export default WorkFromHome;

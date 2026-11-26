@@ -1,60 +1,33 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Button, Modal, Form, Nav } from 'react-bootstrap';
+import React, { useEffect, useState } from 'react';
+import Button from 'react-bootstrap/Button';
+import Form from 'react-bootstrap/Form';
+import Modal from 'react-bootstrap/Modal';
+import Spinner from 'react-bootstrap/Spinner';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCoins, faTicket } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../services/auth';
 import { pointApi, voucherApi } from '../../services/apiClient';
+import { useToast } from '../../services/toast';
+import { formatDate } from '../../services/format';
+import PageHeader from '../../components/PageHeader';
+import EmptyState from '../../components/EmptyState';
 
-import Header from '../Header/Header';
-import Footer from '../Footer/Footer';
-import RightSidebar from '../RightSidebar/RightSidebar';
-import './Voucher.scss';
+const CODE_PREFIX = 'BILL';
 
 const Voucher = () => {
     const { role, userId } = useAuth();
-    const [mainCampaigns, setMainCampaigns] = useState([]);
+    const toast = useToast();
+    const [campaigns, setCampaigns] = useState([]);
     const [subCampaigns, setSubCampaigns] = useState([]);
-    const [activeMainCampaign, setActiveMainCampaign] = useState(null);
-    const [employeePoints, setEmployeePoints] = useState(0);
-
-    const [showAddVoucherModal, setShowAddVoucherModal] = useState(false);
-    const [voucherFormData, setVoucherFormData] = useState({
-        codeType: 'digits',
-        giftCardValue: '',
-        prefix: 'BILL',
-        randomPartLength: 4,
-        size: '',
-    });
-    const [selectedSubCampaignId, setSelectedSubCampaignId] = useState(null);
-
-    const handleAddVoucher = useCallback(async () => {
-        const { codeType, giftCardValue, prefix, randomPartLength, size } = voucherFormData;
-        const requestBody = {
-            code_type: codeType,
-            gift_card_value: parseInt(giftCardValue, 10),
-            prefix,
-            random_part_length: randomPartLength,
-            size: parseInt(size, 10),
-        };
-
-        if (Number.isNaN(requestBody.gift_card_value) || Number.isNaN(requestBody.size)) {
-            alert('Voucher value and size must be numbers.');
-            return;
-        }
-
-        try {
-            const response = await voucherApi.post(
-                `/campaigns/${selectedSubCampaignId}/vouchers/batch`,
-                requestBody
-            );
-            if (response.status === 202) {
-                alert('Vouchers added successfully!');
-                setShowAddVoucherModal(false);
-            } else {
-                alert('Error adding vouchers. Please try again.');
-            }
-        } catch (error) {
-            alert(`Error adding vouchers: ${error.message}. Please try again.`);
-        }
-    }, [selectedSubCampaignId, voucherFormData]);
+    const [activeCampaign, setActiveCampaign] = useState(null);
+    const [points, setPoints] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
+    const [redeemingId, setRedeemingId] = useState(null);
+    const [addTarget, setAddTarget] = useState(null);
+    const [showAdd, setShowAdd] = useState(false);
+    const [batch, setBatch] = useState({ value: '', quantity: '' });
+    const [adding, setAdding] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -65,207 +38,191 @@ const Voucher = () => {
                     voucherApi.get('/campaigns/sub?per_page=20'),
                 ]);
                 if (cancelled) return;
-                setMainCampaigns(mainRes.data.filter((c) => c.type === 'MainCampaign'));
+                const mains = mainRes.data.filter((campaign) => campaign.type === 'MainCampaign');
+                setCampaigns(mains);
                 setSubCampaigns(subRes.data);
+                setActiveCampaign(mains[0]?.id ?? null);
             } catch (error) {
-                // Surface to user via alert so it's not silent
-                alert(`Failed to load campaigns: ${error.message}`);
-            }
-
-            if (userId) {
-                try {
-                    const { data } = await pointApi.get(`/${userId}`);
-                    if (!cancelled) setEmployeePoints(data.totalPoint ?? 0);
-                } catch (error) {
-                    if (!cancelled) setEmployeePoints(0);
-                }
+                if (cancelled) return;
+                setLoadError(error.status === 401 || error.status === 403
+                    ? 'The voucher service is not configured. Set VOUCHERY_API_KEY in .env to enable it.'
+                    : `Could not load vouchers: ${error.message}`);
+            } finally {
+                if (!cancelled) setLoading(false);
             }
         })();
-        return () => {
-            cancelled = true;
-        };
+        pointApi.get(`/${userId}`)
+            .then(({ data }) => !cancelled && setPoints(data.totalPoint ?? 0))
+            .catch(() => !cancelled && setPoints(null));
+        return () => { cancelled = true; };
     }, [userId]);
 
-    const handleSelect = useCallback((selectedKey) => {
-        setActiveMainCampaign(selectedKey);
-    }, []);
-
-    const handleRedeem = useCallback(async (subCampaignId, voucherCost) => {
-        if (employeePoints < voucherCost) {
-            alert('Not enough points to redeem this voucher.');
-            return;
-        }
+    const redeem = async (voucherCampaign) => {
+        const cost = voucherCampaign.gift_card_value;
+        setRedeemingId(voucherCampaign.id);
         try {
-            const { data } = await voucherApi.get(
-                `/campaigns/${subCampaignId}/vouchers?per_page=50`
-            );
-            const availableVouchers = data.filter((v) => v.status === 'created');
-            if (availableVouchers.length === 0) {
-                alert('This voucher is out of stock.');
+            const { data } = await voucherApi.get(`/campaigns/${voucherCampaign.id}/vouchers?per_page=50`);
+            const available = data.filter((voucher) => voucher.status === 'created');
+            if (available.length === 0) {
+                toast.error('This voucher is out of stock.');
                 return;
             }
-            const randomVoucher =
-                availableVouchers[Math.floor(Math.random() * availableVouchers.length)];
-            const voucherCode = randomVoucher.code;
-
-            try {
-                await voucherApi.put(
-                    `/customers/${userId}/vouchers`,
-                    { vouchers: [voucherCode] }
-                );
-            } catch (error) {
-                alert('Error redeeming voucher. Please try again.');
-                return;
-            }
-
-            try {
-                await pointApi.post('/redeem', null, {
-                    params: {
-                        employeeId: userId,
-                        points: voucherCost,
-                        message: `Redeemed voucher: ${randomVoucher.campaign?.name || ''}`,
-                    },
-                });
-            } catch (error) {
-                alert('Error updating points. Please try again.');
-                return;
-            }
-
-            setEmployeePoints((prev) => prev - voucherCost);
-            alert('Voucher redeemed successfully!');
+            const voucher = available[Math.floor(Math.random() * available.length)];
+            await voucherApi.put(`/customers/${userId}/vouchers`, { vouchers: [voucher.code] });
+            await pointApi.post('/redeem', null, {
+                params: { employeeId: userId, points: cost, message: `Redeemed voucher: ${voucherCampaign.name}` },
+            });
+            setPoints((prev) => (prev ?? 0) - cost);
+            toast.success(`Redeemed “${voucherCampaign.name}”. Your code is in your profile.`);
         } catch (error) {
-            alert('Error redeeming voucher. Please try again.');
+            toast.error(`Could not redeem the voucher: ${error.message}`);
+        } finally {
+            setRedeemingId(null);
         }
-    }, [employeePoints, userId]);
+    };
 
-    const filteredSubCampaigns = activeMainCampaign
-        ? subCampaigns.filter((s) => s.parent_id === parseInt(activeMainCampaign, 10))
-        : [];
+    const openAdd = (voucherCampaign) => {
+        setAddTarget(voucherCampaign);
+        setBatch({ value: '', quantity: '' });
+        setShowAdd(true);
+    };
+
+    const addVouchers = async (event) => {
+        event.preventDefault();
+        setAdding(true);
+        try {
+            await voucherApi.post(`/campaigns/${addTarget.id}/vouchers/batch`, {
+                code_type: 'digits',
+                gift_card_value: Number(batch.value),
+                prefix: CODE_PREFIX,
+                random_part_length: 4,
+                size: Number(batch.quantity),
+            });
+            toast.success(`Adding ${batch.quantity} vouchers to “${addTarget.name}”`);
+            setShowAdd(false);
+        } catch (error) {
+            toast.error(`Could not add vouchers: ${error.message}`);
+        } finally {
+            setAdding(false);
+        }
+    };
+
+    const visible = subCampaigns.filter((voucherCampaign) => voucherCampaign.parent_id === activeCampaign);
+
+    let content;
+    if (loading) {
+        content = <div className="text-center py-5"><Spinner animation="border" size="sm" /></div>;
+    } else if (loadError) {
+        content = <EmptyState icon={faTicket} title="Voucher catalogue unavailable">{loadError}</EmptyState>;
+    } else if (campaigns.length === 0) {
+        content = <EmptyState icon={faTicket} title="No campaigns yet">Voucher campaigns will appear here.</EmptyState>;
+    } else {
+        content = (
+            <>
+                <div className="tabs-underline">
+                    {campaigns.map((campaign) => (
+                        <button key={campaign.id} type="button" className={campaign.id === activeCampaign ? 'active' : ''}
+                                onClick={() => setActiveCampaign(campaign.id)}>
+                            {campaign.name}
+                        </button>
+                    ))}
+                </div>
+                {visible.length === 0 ? (
+                    <EmptyState icon={faTicket} title="No vouchers in this campaign" />
+                ) : (
+                    <div className="table-responsive">
+                        <table className="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Voucher</th>
+                                    <th className="text-end">Cost</th>
+                                    <th className="text-end">Available</th>
+                                    <th>Expires</th>
+                                    <th aria-label="Actions" />
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {visible.map((voucherCampaign) => {
+                                    const left = voucherCampaign.vouchers_count - voucherCampaign.vouchers_distributed_count;
+                                    return (
+                                        <tr key={voucherCampaign.id}>
+                                            <td>
+                                                <div className="fw-medium text-body-emphasis">{voucherCampaign.name}</div>
+                                                <div className="small text-body-secondary">{voucherCampaign.description}</div>
+                                            </td>
+                                            <td className="text-end text-nowrap">{voucherCampaign.gift_card_value} pts</td>
+                                            <td className="text-end">{left}</td>
+                                            <td className="text-nowrap">
+                                                {voucherCampaign.expires_at ? formatDate(voucherCampaign.expires_at) : 'No expiry'}
+                                            </td>
+                                            <td className="text-end">
+                                                {role === 'Manager' ? (
+                                                    <Button size="sm" variant="outline-primary" onClick={() => openAdd(voucherCampaign)}>
+                                                        Add vouchers
+                                                    </Button>
+                                                ) : (
+                                                    <Button size="sm" onClick={() => redeem(voucherCampaign)}
+                                                            disabled={redeemingId !== null || left <= 0
+                                                                || (points ?? 0) < voucherCampaign.gift_card_value}>
+                                                        {redeemingId === voucherCampaign.id ? 'Redeeming…' : 'Redeem'}
+                                                    </Button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </>
+        );
+    }
 
     return (
-        <React.Fragment>
-            <Header />
-            <section>
-                <div className="content-frame">
-                    <div className="d-flex align-items-center m-3 update-timesheet-header">
-                        <div className="col-md-6">
-                            <div className="mb-3">
-                                <h5 className="card-title">Vouchers</h5>
-                            </div>
+        <>
+            <PageHeader
+                title="Vouchers"
+                subtitle={role === 'Manager' ? 'Manage the voucher catalogue.' : 'Spend your points on vouchers from our partners.'}
+                actions={role === 'Employee' && points !== null && (
+                    <span className="badge badge-soft-primary fs-6 px-3 py-2">
+                        <FontAwesomeIcon icon={faCoins} className="me-2" />{points} points
+                    </span>
+                )}
+            />
+
+            <div className="card">{content}</div>
+
+            <Modal show={showAdd} onHide={() => setShowAdd(false)} centered>
+                <Form onSubmit={addVouchers}>
+                    <Modal.Header closeButton>
+                        <Modal.Title>Add vouchers to {addTarget?.name}</Modal.Title>
+                    </Modal.Header>
+                    <Modal.Body>
+                        <Form.Group className="mb-3" controlId="voucher-prefix">
+                            <Form.Label>Code prefix</Form.Label>
+                            <Form.Control value={CODE_PREFIX} readOnly />
+                        </Form.Group>
+                        <div className="row g-3">
+                            <Form.Group className="col-6" controlId="voucher-value">
+                                <Form.Label>Value per voucher</Form.Label>
+                                <Form.Control type="number" min="1" required value={batch.value}
+                                              onChange={(e) => setBatch((prev) => ({ ...prev, value: e.target.value }))} />
+                            </Form.Group>
+                            <Form.Group className="col-6" controlId="voucher-quantity">
+                                <Form.Label>Quantity</Form.Label>
+                                <Form.Control type="number" min="1" required value={batch.quantity}
+                                              onChange={(e) => setBatch((prev) => ({ ...prev, quantity: e.target.value }))} />
+                            </Form.Group>
                         </div>
-                    </div>
-
-                    <Nav variant="tabs" className="voucher-type" defaultActiveKey="link-1" onSelect={handleSelect}>
-                        {mainCampaigns.map((campaign) => (
-                            <Nav.Item key={campaign.id}>
-                                <Nav.Link eventKey={campaign.id}>{campaign.name}</Nav.Link>
-                            </Nav.Item>
-                        ))}
-                    </Nav>
-
-                    <table className="table table-hover">
-                        <thead>
-                            <tr>
-                                <th scope="col">Voucher</th>
-                                <th scope="col">Description</th>
-                                <th scope="col">Gift card value</th>
-                                <th scope="col">Available</th>
-                                <th scope="col">Expires</th>
-                                {role && <th scope="col">Action</th>}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredSubCampaigns.map((sub) => (
-                                <tr key={sub.id}>
-                                    <td><b>{sub.name}</b></td>
-                                    <td>{sub.description}</td>
-                                    <td>{sub.gift_card_value}</td>
-                                    <td>{sub.vouchers_count - sub.vouchers_distributed_count}</td>
-                                    <td>
-                                        {sub.expires_at
-                                            ? new Date(sub.expires_at).toLocaleDateString()
-                                            : 'N/A'}
-                                    </td>
-                                    {role === 'Employee' && (
-                                        <td>
-                                            <Button onClick={() => handleRedeem(sub.id, sub.gift_card_value)}>
-                                                Redeem
-                                            </Button>
-                                        </td>
-                                    )}
-                                    {role === 'Manager' && (
-                                        <td>
-                                            <Button
-                                                onClick={() => {
-                                                    setSelectedSubCampaignId(sub.id);
-                                                    setShowAddVoucherModal(true);
-                                                }}
-                                            >
-                                                Add vouchers
-                                            </Button>
-                                        </td>
-                                    )}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-
-                    <Modal show={showAddVoucherModal} onHide={() => setShowAddVoucherModal(false)}>
-                        <Modal.Header closeButton>
-                            <Modal.Title>Add vouchers</Modal.Title>
-                        </Modal.Header>
-                        <Modal.Body>
-                            <Form>
-                                <Form.Group className="mb-3" controlId="voucherCode">
-                                    <Form.Label>Code prefix</Form.Label>
-                                    <Form.Control
-                                        type="text"
-                                        value={voucherFormData.prefix}
-                                        onChange={(e) =>
-                                            setVoucherFormData({ ...voucherFormData, prefix: e.target.value })
-                                        }
-                                        disabled
-                                    />
-                                </Form.Group>
-                                <Form.Group className="mb-3" controlId="voucherValue">
-                                    <Form.Label>Voucher value</Form.Label>
-                                    <Form.Control
-                                        type="number"
-                                        value={voucherFormData.giftCardValue}
-                                        onChange={(e) =>
-                                            setVoucherFormData({
-                                                ...voucherFormData,
-                                                giftCardValue: e.target.value,
-                                            })
-                                        }
-                                    />
-                                </Form.Group>
-                                <Form.Group className="mb-3" controlId="numberOfVouchers">
-                                    <Form.Label>Quantity</Form.Label>
-                                    <Form.Control
-                                        type="number"
-                                        value={voucherFormData.size}
-                                        onChange={(e) =>
-                                            setVoucherFormData({ ...voucherFormData, size: e.target.value })
-                                        }
-                                    />
-                                </Form.Group>
-                            </Form>
-                        </Modal.Body>
-                        <Modal.Footer>
-                            <Button variant="secondary" onClick={() => setShowAddVoucherModal(false)}>
-                                Close
-                            </Button>
-                            <Button variant="primary" onClick={handleAddVoucher}>
-                                Add vouchers
-                            </Button>
-                        </Modal.Footer>
-                    </Modal>
-                </div>
-                <RightSidebar />
-            </section>
-            <Footer />
-        </React.Fragment>
+                    </Modal.Body>
+                    <Modal.Footer>
+                        <Button variant="outline-secondary" onClick={() => setShowAdd(false)}>Cancel</Button>
+                        <Button type="submit" disabled={adding}>{adding ? 'Adding…' : 'Add vouchers'}</Button>
+                    </Modal.Footer>
+                </Form>
+            </Modal>
+        </>
     );
 };
 

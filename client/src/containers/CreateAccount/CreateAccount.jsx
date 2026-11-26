@@ -1,181 +1,157 @@
 import React, { useState } from 'react';
-import { userApi } from '../../services/apiClient';
 import Alert from 'react-bootstrap/Alert';
-import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
-
-import Header from '../Header/Header';
-import Footer from '../Footer/Footer';
-import RightSidebar from '../RightSidebar/RightSidebar';
-import './CreateAccount.scss';
+import Form from 'react-bootstrap/Form';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCopy } from '@fortawesome/free-solid-svg-icons';
+import { userApi } from '../../services/apiClient';
+import { useToast } from '../../services/toast';
+import PageHeader from '../../components/PageHeader';
 
 const EMPTY_FORM = {
     username: '',
     name: '',
     gender: '',
-    taxNumber: '',
     identifyId: '',
+    taxNumber: '',
     position: '',
-    department: ''
+    department: '',
 };
 
 const CreateAccount = () => {
-    const [formData, setFormData] = useState(EMPTY_FORM);
+    const toast = useToast();
+    const [form, setForm] = useState(EMPTY_FORM);
     const [created, setCreated] = useState(null);
     const [errorMessage, setErrorMessage] = useState('');
+    const [submitting, setSubmitting] = useState(false);
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: value }));
+    const handleChange = (event) => {
+        const { name, value } = event.target;
+        setForm((prev) => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleSubmit = async (event) => {
+        event.preventDefault();
         setCreated(null);
         setErrorMessage('');
-        const data = {
-            user: {
-                status: 'Active',
-                role: 'Employee',
-                username: formData.username
-            },
-            employee: {
-                name: formData.name,
-                birthDate: '',
-                avatar: '',
-                gender: formData.gender,
-                taxNumber: formData.taxNumber,
-                identifyId: formData.identifyId,
-                address: '',
-                phoneNumber: '',
-                bankNumber: '',
-                position: formData.position,
-                department: formData.department,
-                status: 'Active'
-            }
-        };
-
+        setSubmitting(true);
         try {
-            const { data: response } = await userApi.post('', data);
+            const { data } = await userApi.post('', {
+                user: { username: form.username.trim(), role: 'Employee', status: 'Active' },
+                employee: {
+                    name: form.name.trim(),
+                    gender: form.gender,
+                    identifyId: form.identifyId.trim(),
+                    taxNumber: form.taxNumber.trim(),
+                    position: form.position.trim(),
+                    department: form.department.trim(),
+                    status: 'Active',
+                },
+            });
             // The temporary password is returned only once; the manager hands it to the employee.
-            setCreated({ username: response.user.username, password: response.temporaryPassword });
-            setFormData(EMPTY_FORM);
+            setCreated({ username: data.user.username, password: data.temporaryPassword });
+            setForm(EMPTY_FORM);
         } catch (error) {
             setErrorMessage(`Could not create the account: ${error.message}`);
+        } finally {
+            setSubmitting(false);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
-        // The result banner sits above the form; make sure it is visible.
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const copyPassword = async () => {
+        try {
+            await navigator.clipboard.writeText(created.password);
+            toast.success('Password copied');
+        } catch {
+            toast.error('Could not copy; select the password and copy it manually.');
+        }
     };
 
     return (
-        <React.Fragment>
-            <Header />
-            <section>
-                <div className='content-frame'>
-                    <div className="d-flex align-items-center justify-content-center m-3 wfh-header">
-                        <div className="mb-3">
-                            <h5 className="card-title">Create Account</h5>
-                        </div>
-                    </div>
-                    <div className='wfh-info'>
-                        <div className='wfh-info-content'>
-                            {created && (
-                                <Alert variant="success" onClose={() => setCreated(null)} dismissible>
-                                    <Alert.Heading>Account created</Alert.Heading>
-                                    <p className="mb-1">Username: <b>{created.username}</b></p>
-                                    <p className="mb-1">Temporary password: <code className="fs-5">{created.password}</code></p>
-                                    <small>This password is shown only once. Share it with the employee now.</small>
-                                </Alert>
-                            )}
-                            {errorMessage && <Alert variant="danger">{errorMessage}</Alert>}
+        <>
+            <PageHeader title="Create account"
+                        subtitle="Add a new employee. They sign in with a temporary password generated for them." />
+
+            <div className="row">
+                <div className="col-xl-9">
+                    {created && (
+                        <Alert variant="success" onClose={() => setCreated(null)} dismissible>
+                            <div className="fw-semibold mb-2">Account created for {created.username}</div>
+                            <div className="d-flex flex-wrap align-items-center gap-2">
+                                Temporary password:
+                                <code className="fs-6 px-2 py-1 bg-white rounded border">{created.password}</code>
+                                <Button size="sm" variant="outline-secondary" onClick={copyPassword}>
+                                    <FontAwesomeIcon icon={faCopy} /> Copy
+                                </Button>
+                            </div>
+                            <div className="small mt-2">This password is shown only once. Share it with the employee now.</div>
+                        </Alert>
+                    )}
+                    {errorMessage && <Alert variant="danger">{errorMessage}</Alert>}
+
+                    <div className="card">
+                        <div className="card-body p-4">
                             <Form onSubmit={handleSubmit}>
-                                <Form.Group className="mb-3" controlId="formUsername">
-                                    <Form.Label className='fw-bold'>Username:</Form.Label>
-                                    <Form.Control
-                                        type="text"
-                                        name="username"
-                                        value={formData.username}
-                                        onChange={handleChange}
-                                        required
-                                    />
-                                </Form.Group>
-                                <Form.Group className="mb-3" controlId="formName">
-                                    <Form.Label className='fw-bold'>Full name:</Form.Label>
-                                    <Form.Control
-                                        type="text"
-                                        name="name"
-                                        value={formData.name}
-                                        onChange={handleChange}
-                                        required
-                                    />
-                                </Form.Group>
-                                <Form.Group className="mb-3" controlId="formGender">
-                                    <Form.Label className="fw-bold">Gender:</Form.Label>
-                                    <div>
-                                        <Form.Check
-                                            type="radio"
-                                            label="Male"
-                                            name="gender"
-                                            value="Male"
-                                            checked={formData.gender === 'Male'}
-                                            onChange={handleChange}
-                                        />
-                                        <Form.Check
-                                            type="radio"
-                                            label="Female"
-                                            name="gender"
-                                            value="Female"
-                                            checked={formData.gender === 'Female'}
-                                            onChange={handleChange}
-                                        />
-                                    </div>
-                                </Form.Group>
-                                <Form.Group className="mb-3" controlId="formTaxNumber">
-                                    <Form.Label className='fw-bold'>Tax number:</Form.Label>
-                                    <Form.Control
-                                        type="number"
-                                        name="taxNumber"
-                                        value={formData.taxNumber}
-                                        onChange={handleChange}
-                                    />
-                                </Form.Group>
-                                <Form.Group className="mb-3" controlId="formIdentifyId">
-                                    <Form.Label className='fw-bold'>ID card number:</Form.Label>
-                                    <Form.Control
-                                        type="number"
-                                        name="identifyId"
-                                        value={formData.identifyId}
-                                        onChange={handleChange}
-                                        required
-                                    />
-                                </Form.Group>
-                                <Form.Group className="mb-3" controlId="formPosition">
-                                    <Form.Label className='fw-bold'>Position:</Form.Label>
-                                    <Form.Control
-                                        type="text"
-                                        name="position"
-                                        value={formData.position}
-                                        onChange={handleChange}
-                                    />
-                                </Form.Group>
-                                <Form.Group className="mb-3" controlId="formDepartment">
-                                    <Form.Label className='fw-bold'>Department:</Form.Label>
-                                    <Form.Control
-                                        type="text"
-                                        name="department"
-                                        value={formData.department}
-                                        onChange={handleChange}
-                                    />
-                                </Form.Group>
-                                <Button type="submit">Create</Button>
+                                <div className="form-section-title">Account</div>
+                                <div className="row g-3 mb-4">
+                                    <Form.Group className="col-md-6" controlId="account-username">
+                                        <Form.Label>Username</Form.Label>
+                                        <Form.Control name="username" required autoComplete="off"
+                                                      value={form.username} onChange={handleChange} />
+                                    </Form.Group>
+                                </div>
+
+                                <div className="form-section-title">Personal details</div>
+                                <div className="row g-3 mb-4">
+                                    <Form.Group className="col-md-6" controlId="account-name">
+                                        <Form.Label>Full name</Form.Label>
+                                        <Form.Control name="name" required value={form.name} onChange={handleChange} />
+                                    </Form.Group>
+                                    <Form.Group className="col-md-6" controlId="account-gender">
+                                        <Form.Label>Gender</Form.Label>
+                                        <Form.Select name="gender" value={form.gender} onChange={handleChange}>
+                                            <option value="">Select…</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                        </Form.Select>
+                                    </Form.Group>
+                                    <Form.Group className="col-md-6" controlId="account-identify-id">
+                                        <Form.Label>ID card number</Form.Label>
+                                        <Form.Control name="identifyId" required inputMode="numeric"
+                                                      value={form.identifyId} onChange={handleChange} />
+                                    </Form.Group>
+                                    <Form.Group className="col-md-6" controlId="account-tax-number">
+                                        <Form.Label>Tax number</Form.Label>
+                                        <Form.Control name="taxNumber" inputMode="numeric"
+                                                      value={form.taxNumber} onChange={handleChange} />
+                                    </Form.Group>
+                                </div>
+
+                                <div className="form-section-title">Job</div>
+                                <div className="row g-3 mb-4">
+                                    <Form.Group className="col-md-6" controlId="account-position">
+                                        <Form.Label>Position</Form.Label>
+                                        <Form.Control name="position" value={form.position} onChange={handleChange} />
+                                    </Form.Group>
+                                    <Form.Group className="col-md-6" controlId="account-department">
+                                        <Form.Label>Department</Form.Label>
+                                        <Form.Control name="department" value={form.department} onChange={handleChange} />
+                                    </Form.Group>
+                                </div>
+
+                                <div className="d-flex justify-content-end gap-2">
+                                    <Button variant="outline-secondary" onClick={() => setForm(EMPTY_FORM)}>Clear</Button>
+                                    <Button type="submit" disabled={submitting}>
+                                        {submitting ? 'Creating…' : 'Create account'}
+                                    </Button>
+                                </div>
                             </Form>
                         </div>
                     </div>
                 </div>
-                <RightSidebar />
-            </section>
-            <Footer />
-        </React.Fragment>
+            </div>
+        </>
     );
 };
 

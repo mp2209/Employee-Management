@@ -18,6 +18,8 @@ for a university distributed-systems course. It is split into independently depl
 services behind an API gateway, uses a different database per service, and communicates both
 synchronously (REST through the gateway) and asynchronously (RabbitMQ events).
 
+![Manager dashboard: attendance, points balance, pending approvals and announcements](docs/screenshots/dashboard.png)
+
 ## Features
 
 | Employees | Managers |
@@ -28,6 +30,20 @@ synchronously (REST through the gateway) and asynchronously (RabbitMQ events).
 | Points wallet with history; redeem points for vouchers | Add vouchers to campaigns; view the team's Strava club activities |
 
 Every account gets a points wallet automatically, and everyone earns a monthly bonus.
+
+## Screenshots
+
+| Approval queue (manager) | Reviewing a request |
+| --- | --- |
+| ![Approvals page listing pending leave, work-from-home and timesheet requests](docs/screenshots/approvals.png) | ![Review dialog with the request details and Approve / Reject actions](docs/screenshots/review-request.png) |
+
+| Leave requests (employee) | Giving points (manager) |
+| --- | --- |
+| ![Leave page with the request form and the employee's request history](docs/screenshots/leave.png) | ![Give points page listing team members and their point balances](docs/screenshots/give-points.png) |
+
+| Sign in | On a phone |
+| --- | --- |
+| ![Sign-in page with the demo accounts](docs/screenshots/login.png) | <img src="docs/screenshots/mobile-dashboard.png" alt="Employee dashboard on a phone" width="48%"> <img src="docs/screenshots/mobile-menu.png" alt="Navigation drawer on a phone" width="48%"> |
 
 ## Architecture
 
@@ -199,10 +215,13 @@ curl -s localhost:8080/api/points/1 -H "Authorization: Bearer $TOKEN"
 ├── docker-compose.yml        # infrastructure + all services
 ├── .env.example              # configuration template
 ├── scripts/smoke-test.sh     # end-to-end API checks
+├── docs/screenshots/         # images used in this README
 ├── client/                   # React 18 SPA (Create React App), served by nginx
 │   └── src/
-│       ├── containers/       # pages: Leave, WorkFromHome, Approve, GivePoint, Voucher, ...
-│       └── services/         # API clients (axios), auth context, route guards
+│       ├── components/       # app shell (sidebar layout), shared UI pieces and dialogs
+│       ├── containers/       # pages: Dashboard, Leave, Approvals, Give points, Vouchers, ...
+│       ├── services/         # API clients (axios), auth, notifications, formatting helpers
+│       └── styles/           # theme.scss: the design system on top of Bootstrap 5
 └── server/                   # Maven multi-module build (shared parent POM)
     ├── Dockerfile            # one Dockerfile for every service (MODULE build arg)
     ├── api-gateway/

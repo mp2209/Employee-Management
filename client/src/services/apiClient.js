@@ -35,7 +35,9 @@ const buildClient = (baseURL, { logoutOnUnauthorized = true, timeoutMs = 15000 }
                 window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
             }
             const message = error.response?.data?.message || error.message || 'Network error';
-            return Promise.reject(new Error(message));
+            const apiError = new Error(message);
+            apiError.status = error.response?.status;
+            return Promise.reject(apiError);
         }
     );
 

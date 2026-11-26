@@ -1,187 +1,98 @@
-import React, { useEffect, useState } from "react";
-import { useAuth } from '../../services/auth';
-import { employeeApi, requestApi } from '../../services/apiClient';
-import Button from 'react-bootstrap/Button';
-import Modal from 'react-bootstrap/Modal';
-import Form from 'react-bootstrap/Form';
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
+import React, { useState } from 'react';
+import DatePicker from 'react-datepicker';
 import TimePicker from 'react-bootstrap-time-picker';
+import Button from 'react-bootstrap/Button';
+import Form from 'react-bootstrap/Form';
+import Modal from 'react-bootstrap/Modal';
+import { useAuth } from '../../services/auth';
+import { requestApi } from '../../services/apiClient';
+import { useToast } from '../../services/toast';
+import { startOfToday, toApiDate } from '../../services/format';
 
-import './AddNewTimeSheet.scss';
+// TimePicker values are seconds since midnight.
+const toTime = (seconds) => {
+    const hours = String(Math.floor(seconds / 3600)).padStart(2, '0');
+    const minutes = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+    return `${hours}:${minutes}:00`;
+};
 
-export function AddNewTimeSheet({show, handleClose, handleConfirm}) {
-    const [userData, setUserData] = useState('');
+const initialForm = () => ({ date: startOfToday(), start: 8 * 3600, end: 17 * 3600 });
+
+/** Modal for a new timesheet correction request. */
+const AddNewTimeSheet = ({ show, employee, onHide, onSubmitted }) => {
     const { userId } = useAuth();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const [sendSuccessful, setSendSuccessful] = useState(false);
-    const [errorTimeEnd, setErrorTimeEnd] = useState('');
-    const [timeSheetData, setTimeSheetData] = useState({
-        date: today,
-        time_start: "08:00",
-        time_end: "08:00"
-    });
-
-    const formatDate = (date) => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
-
-    const formatTime = (timeString) => {
-        if (typeof timeString === 'string') {
-            const [hours, minutes] = timeString.split(':');
-            const seconds = '00';
-            return `${hours}:${minutes}:${seconds}`;
-        }
-        if (typeof timeString === 'number') {
-            const hours = Math.floor(timeString / 3600);
-            const minutes = Math.floor((timeString % 3600) / 60);
-            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
-        }
-        return '00:00:00';
-    };
-
-    // Load the employee profile
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const response = await employeeApi.get(`/${userId}`);
-                if (response.status === 200) {
-                    setUserData(response.data);
-                } else {
-                    console.error("Error fetching user data");
-                }
-            } catch (error) {
-                console.error("Error during API request:", error);
-            }
-        };
-        fetchData();
-    }, [userId]);
-
-    const timeSheetInfo = {
-        "employeeId": userData.id, 
-        "employeeName": userData.name,
-        "requestType": "Update", 
-        "day": formatDate(timeSheetData.date),
-        "timeStart": formatTime(timeSheetData.time_start),
-        "timeEnd": formatTime(timeSheetData.time_end),
-        "reasonRequest": null,
-        "device": null
-    };
-
-    const handleDateChange = (date, name) => {
-        setTimeSheetData({
-          ...timeSheetData,
-          [name]: date
-        });
-    };
-
-    const handleChange = (value, name) => {
-        const hours = Math.floor(value / 3600);
-        const minutes = Math.floor((value % 3600) / 60);
-        const formattedTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-
-        setTimeSheetData({
-            ...timeSheetData,
-            [name]: formattedTime
-        });
-    };
+    const toast = useToast();
+    const [form, setForm] = useState(initialForm);
+    const [error, setError] = useState('');
+    const [submitting, setSubmitting] = useState(false);
 
     const handleSubmit = async (event) => {
-        const start = formatTime(timeSheetData.time_start);
-        const end = formatTime(timeSheetData.time_end);
-        if (end < start) {
-            setErrorTimeEnd('The end time must be after the start time.');
+        event.preventDefault();
+        if (form.end <= form.start) {
+            setError('The check-out time must be after the check-in time.');
             return;
         }
-
-        // Submit the timesheet correction request
+        setError('');
+        setSubmitting(true);
         try {
-            const response = await requestApi.post('', timeSheetInfo);
-            if (response.status === 200) {
-                alert('Request submitted');
-                setSendSuccessful(true);
-            } else {
-                const message = response.data.message || 'An error occurred while login';
-                alert(message);
-            }
-        } catch (error) {
-            const message = error.response?.data?.message || 'An error occurred while update';
-            alert(message)
+            await requestApi.post('', {
+                employeeId: String(userId),
+                employeeName: employee?.name,
+                requestType: 'Update',
+                day: toApiDate(form.date),
+                timeStart: toTime(form.start),
+                timeEnd: toTime(form.end),
+                reasonRequest: null,
+                device: null,
+            });
+            toast.success('Timesheet correction submitted');
+            setForm(initialForm());
+            onSubmitted();
+        } catch (err) {
+            toast.error(err.message);
+        } finally {
+            setSubmitting(false);
         }
-    }
-
-    useEffect(() => {
-        if (sendSuccessful) {
-            handleConfirm();
-        }
-    }, [sendSuccessful, handleConfirm]);
+    };
 
     return (
-        <Modal show={show} onHide={handleClose}>
-            <Modal.Header closeButton>
-                <Modal.Title>Timesheet correction</Modal.Title>
-            </Modal.Header>
-            <Modal.Body>
-                <Form> 
-                    <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
-                        <Form.Label>Employee ID:</Form.Label>
-                        <Form.Control
-                            type="text"
-                            value={userData.id}
-                            disabled
-                        />
+        <Modal show={show} onHide={onHide} centered>
+            <Form onSubmit={handleSubmit}>
+                <Modal.Header closeButton>
+                    <Modal.Title>New timesheet correction</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Form.Group className="mb-3">
+                        <Form.Label htmlFor="correction-date">Date</Form.Label>
+                        <DatePicker id="correction-date" selected={form.date} maxDate={new Date()}
+                                    onChange={(date) => setForm((prev) => ({ ...prev, date }))}
+                                    dateFormat="dd/MM/yyyy" className="form-control" required />
                     </Form.Group>
-                    <Form.Group className="mb-3" controlId="exampleForm.ControlInput2">
-                        <Form.Label>Full name:</Form.Label>
-                        <Form.Control
-                            type="text"
-                            value={userData.name}
-                            disabled
-                        />
-                    </Form.Group>
-                    <Form.Group className="mb-3" controlId="exampleForm.ControlInput3">
-                        <Form.Label className="row">Date:</Form.Label>
-                        <DatePicker
-                            name = 'date'
-                            selected={timeSheetData.date}
-                            onChange={(date) => handleDateChange(date, 'date')}
-                            dateFormat="dd/MM/yyyy"
-                            className="form-control"
-                            required
-                        />
-                    </Form.Group>
-                    <Form.Group className="mb-3" controlId="exampleForm.ControlInput4">
-                        <Form.Label>Start:</Form.Label>
-                        <TimePicker name = 'time_start' format = '24' start="08:00" end="21:00" step={30}
-                                    value = {timeSheetData.time_start} 
-                                    onChange={(value) => handleChange(value, 'time_start')} 
-                                    required/>
-                    </Form.Group>
-                    <Form.Group className="mb-3" controlId="exampleForm.ControlInput5">
-                        <Form.Label>End:</Form.Label>
-                        <TimePicker name = 'time_end' start="08:00" end="21:00" step={30}
-                                    value = {timeSheetData.time_end} 
-                                    onChange={(value) => handleChange(value, 'time_end')}  
-                                    required/>
-                        {errorTimeEnd && <div className="text-danger mx-3">{errorTimeEnd}</div>}
-                    </Form.Group>
-                </Form>
-            </Modal.Body>
-            <Modal.Footer>
-                <Button variant="secondary" onClick={handleClose}>
-                    Close
-                </Button>
-                <Button variant="primary" onClick={handleSubmit}>
-                    Save
-                </Button>
-            </Modal.Footer>
+                    <div className="row g-3">
+                        <Form.Group className="col-6">
+                            <Form.Label htmlFor="correction-start">Check-in</Form.Label>
+                            <TimePicker id="correction-start" className="form-select" format={24}
+                                        start="06:00" end="22:00" step={30} value={form.start}
+                                        onChange={(start) => setForm((prev) => ({ ...prev, start }))} />
+                        </Form.Group>
+                        <Form.Group className="col-6">
+                            <Form.Label htmlFor="correction-end">Check-out</Form.Label>
+                            <TimePicker id="correction-end" className="form-select" format={24}
+                                        start="06:00" end="22:00" step={30} value={form.end}
+                                        onChange={(end) => setForm((prev) => ({ ...prev, end }))} />
+                        </Form.Group>
+                    </div>
+                    {error && <div className="invalid-feedback d-block mt-2">{error}</div>}
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="outline-secondary" onClick={onHide}>Cancel</Button>
+                    <Button type="submit" disabled={submitting || !employee}>
+                        {submitting ? 'Submitting…' : 'Submit correction'}
+                    </Button>
+                </Modal.Footer>
+            </Form>
         </Modal>
-     );
-}
+    );
+};
 
 export default AddNewTimeSheet;

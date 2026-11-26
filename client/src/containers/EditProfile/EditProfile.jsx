@@ -1,242 +1,157 @@
-import React, { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
-import { Modal, Button } from 'react-bootstrap';
+import React, { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
+import DatePicker from 'react-datepicker';
+import Button from 'react-bootstrap/Button';
+import Form from 'react-bootstrap/Form';
+import Spinner from 'react-bootstrap/Spinner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPenToSquare } from '@fortawesome/free-solid-svg-icons';
-
-import Header from '../Header/Header';
-import Footer from '../Footer/Footer';
+import { faCamera } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../services/auth';
-import { employeeApi, pointApi } from '../../services/apiClient';
-import './EditProfile.scss';
-import avatar from '../../assets/avatar.png';
+import { employeeApi } from '../../services/apiClient';
+import { useToast } from '../../services/toast';
+import { fromDayMonthYear, toDayMonthYear } from '../../services/format';
+import PageHeader from '../../components/PageHeader';
+import Avatar from '../../components/Avatar';
+
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 
 const EditProfile = () => {
-    const { role, userId } = useAuth();
-    const today = new Date();
-    const [selectedDate, setSelectedDate] = useState(today);
-    const [employee, setEmployee] = useState({});
-    const [point, setPoint] = useState({});
-    const [show, setShow] = useState(false);
-    const [statusMessage, setStatusMessage] = useState(null);
-
-    const handleClose = () => setShow(false);
-    const handleShow = () => setShow(true);
+    const { userId } = useAuth();
+    const { reloadEmployee } = useOutletContext();
+    const toast = useToast();
+    const navigate = useNavigate();
+    const fileInput = useRef(null);
+    const [employee, setEmployee] = useState(null);
+    const [birthDate, setBirthDate] = useState(null);
+    const [saving, setSaving] = useState(false);
+    const [uploading, setUploading] = useState(false);
 
     useEffect(() => {
-        if (!userId) return undefined;
         let cancelled = false;
-        (async () => {
-            try {
-                const empRes = await employeeApi.get(`/${userId}`);
+        employeeApi.get(`/${userId}`)
+            .then(({ data }) => {
                 if (cancelled) return;
-                const data = empRes.data;
                 setEmployee(data);
-                const parts = data.birthDate?.split('/');
-                if (parts?.length === 3) {
-                    const [day, month, year] = parts;
-                    const parsed = new Date(`${year}-${month}-${day}`);
-                    if (!Number.isNaN(parsed.getTime())) setSelectedDate(parsed);
-                }
-            } catch (err) {
-                if (!cancelled) setStatusMessage({ type: 'error', text: err.message });
-            }
-            try {
-                const pointRes = await pointApi.get(`/${userId}`);
-                if (!cancelled) setPoint(pointRes.data);
-            } catch (err) {
-                if (!cancelled) setStatusMessage({ type: 'error', text: err.message });
-            }
-        })();
+                setBirthDate(fromDayMonthYear(data.birthDate));
+            })
+            .catch((error) => !cancelled && toast.error(`Could not load your profile: ${error.message}`));
         return () => { cancelled = true; };
-    }, [userId]);
-
-    const handleUpload = async (event) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-        const formData = new FormData();
-        formData.append('file', file);
-        try {
-            const { data } = await employeeApi.post(
-                `/${userId}/avatar`,
-                formData,
-                { headers: { 'Content-Type': 'multipart/form-data' } }
-            );
-            setEmployee((prev) => ({ ...prev, avatar: data.avatar }));
-        } catch (err) {
-            setStatusMessage({ type: 'error', text: err.message });
-        }
-    };
+    }, [userId, toast]);
 
     const handleChange = (event) => {
         const { name, value } = event.target;
         setEmployee((prev) => ({ ...prev, [name]: value }));
     };
 
-    const handleSubmit = async (event) => {
-        event.preventDefault();
+    const handleUpload = async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+        if (file.size > MAX_AVATAR_BYTES) {
+            toast.error('Please choose an image under 2 MB.');
+            return;
+        }
+        const formData = new FormData();
+        formData.append('file', file);
+        setUploading(true);
         try {
-            const response = await employeeApi.put(`/${userId}`, employee);
-            if (response.status === 200) {
-                setStatusMessage({ type: 'success', text: 'Profile updated' });
-            } else {
-                setStatusMessage({ type: 'error', text: response.data?.message || 'Update failed' });
-            }
-        } catch (err) {
-            setStatusMessage({ type: 'error', text: err.message });
+            const { data } = await employeeApi.post(`/${userId}/avatar`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            setEmployee((prev) => ({ ...prev, avatar: data.avatar }));
+            reloadEmployee();
+            toast.success('Photo updated');
+        } catch (error) {
+            toast.error(error.message);
+        } finally {
+            setUploading(false);
         }
     };
 
-    return (
-        <React.Fragment>
-            <Header />
-            <div className="profile-section">
-                <div className="row profile">
-                    <div className="col l-widget">
-                        <div className="avatar" align="center">
-                            {employee.avatar ? (
-                                <img src={`data:image/jpeg;base64,${employee.avatar}`} alt="Avatar" />
-                            ) : (
-                                <img src={avatar} alt="Avatar" />
-                            )}
-                            <FontAwesomeIcon
-                                icon={faPenToSquare}
-                                className="edit-avatar"
-                                role="button"
-                                title="Change avatar"
-                                onClick={() => document.getElementById('fileInput').click()}
-                            />
-                            <input
-                                type="file"
-                                id="fileInput"
-                                className="visually-hidden"
-                                accept="image/*"
-                                onChange={handleUpload}
-                            />
-                            <h3>{employee.name}</h3>
-                        </div>
-                        <div className="point row" align="center">
-                            <h5>Points</h5>
-                            <h4>{point.totalPoint ?? 0}</h4>
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+        setSaving(true);
+        try {
+            await employeeApi.put(`/${userId}`, {
+                ...employee,
+                birthDate: birthDate ? toDayMonthYear(birthDate) : employee.birthDate,
+            });
+            reloadEmployee();
+            toast.success('Profile updated');
+            navigate('/profile');
+        } catch (error) {
+            toast.error(error.message);
+        } finally {
+            setSaving(false);
+        }
+    };
 
-                            <div className="col-6">
-                                <Button variant="primary" onClick={handleShow}>
-                                    Points history
-                                </Button>
+    if (!employee) {
+        return (
+            <>
+                <PageHeader title="Edit profile" />
+                <div className="card">
+                    <div className="card-body text-center py-5"><Spinner animation="border" size="sm" /></div>
+                </div>
+            </>
+        );
+    }
+
+    const field = (name, label, options = {}) => (
+        <Form.Group className={options.wide ? 'col-12' : 'col-md-6'} controlId={`profile-${name}`}>
+            <Form.Label>{label}</Form.Label>
+            <Form.Control name={name} value={employee[name] || ''} onChange={handleChange}
+                          readOnly={options.readOnly} inputMode={options.inputMode} />
+            {options.hint && <Form.Text>{options.hint}</Form.Text>}
+        </Form.Group>
+    );
+
+    return (
+        <>
+            <PageHeader title="Edit profile" subtitle="Keep your personal information up to date." />
+
+            <div className="row">
+                <div className="col-xl-9">
+                    <div className="card">
+                        <div className="card-body p-4">
+                            <div className="d-flex align-items-center gap-3 mb-4">
+                                <Avatar name={employee.name} image={employee.avatar} size="lg" />
+                                <div>
+                                    <div className="fw-semibold text-body-emphasis">{employee.name}</div>
+                                    <Button size="sm" variant="outline-secondary" className="mt-2" disabled={uploading}
+                                            onClick={() => fileInput.current?.click()}>
+                                        <FontAwesomeIcon icon={faCamera} /> {uploading ? 'Uploading…' : 'Change photo'}
+                                    </Button>
+                                    <div className="form-text">JPG or PNG, up to 2 MB.</div>
+                                </div>
+                                <input ref={fileInput} type="file" accept="image/*" className="d-none" onChange={handleUpload} />
                             </div>
-                            {role === 'Manager' && (
-                                <div className="col">
-                                    <NavLink to="/give-point" className="btn btn-success">Give points</NavLink>
+
+                            <Form onSubmit={handleSubmit}>
+                                <div className="row g-3">
+                                    <Form.Group className="col-md-6">
+                                        <Form.Label htmlFor="profile-birth-date">Date of birth</Form.Label>
+                                        <DatePicker id="profile-birth-date" selected={birthDate} onChange={setBirthDate}
+                                                    dateFormat="dd/MM/yyyy" placeholderText="dd/mm/yyyy" maxDate={new Date()}
+                                                    showYearDropdown showMonthDropdown dropdownMode="select"
+                                                    className="form-control" />
+                                    </Form.Group>
+                                    {field('phoneNumber', 'Phone number', { inputMode: 'tel' })}
+                                    {field('address', 'Address', { wide: true })}
+                                    {field('identifyId', 'ID card number', { readOnly: true, hint: 'Contact HR to change it.' })}
+                                    {field('taxNumber', 'Tax number', { inputMode: 'numeric' })}
+                                    {field('bankNumber', 'Bank account', { inputMode: 'numeric' })}
                                 </div>
-                            )}
-                        </div>
-                    </div>
-                    <div className="col-8">
-                        <div className="row info">
-                            <div align="right">
-                                <NavLink to="/profile" className="btn btn-secondary">Back</NavLink>
-                            </div>
-                            <form onSubmit={handleSubmit}>
-                                <table className="info-table table table-bordered">
-                                    <tbody>
-                                        <tr>
-                                            <td className="title">Date of birth:</td>
-                                            <td>
-                                                <DatePicker
-                                                    selected={selectedDate}
-                                                    onChange={(date) => setSelectedDate(date)}
-                                                    dateFormat="dd/MM/yyyy"
-                                                    className="form-control"
-                                                />
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td className="title">Phone number:</td>
-                                            <td>
-                                                <input className="form-control" type="text"
-                                                    name="phoneNumber" defaultValue={employee.phoneNumber}
-                                                    onChange={handleChange} />
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td className="title">Address:</td>
-                                            <td>
-                                                <input className="form-control" type="text"
-                                                    name="address" defaultValue={employee.address}
-                                                    onChange={handleChange} />
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td className="title">ID card number:</td>
-                                            <td>
-                                                <input className="form-control" type="text"
-                                                    name="identifyId" defaultValue={employee.identifyId}
-                                                    onChange={handleChange} />
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td className="title">Tax number:</td>
-                                            <td>
-                                                <input className="form-control" type="text"
-                                                    name="taxNumber" defaultValue={employee.taxNumber}
-                                                    onChange={handleChange} />
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td className="title">Bank account:</td>
-                                            <td>
-                                                <input className="form-control" type="text"
-                                                    name="bankNumber" defaultValue={employee.bankNumber}
-                                                    onChange={handleChange} />
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                                <div align="right">
-                                    <button className="btn btn-primary" type="submit">Save</button>
+                                <div className="d-flex justify-content-end gap-2 mt-4">
+                                    <Link to="/profile" className="btn btn-outline-secondary">Cancel</Link>
+                                    <Button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</Button>
                                 </div>
-                            </form>
-                            {statusMessage && (
-                                <div className={`alert alert-${statusMessage.type === 'error' ? 'danger' : 'success'} mt-2`}>
-                                    {statusMessage.text}
-                                </div>
-                            )}
+                            </Form>
                         </div>
                     </div>
                 </div>
             </div>
-            <Footer />
-
-            <Modal show={show} onHide={handleClose}>
-                <Modal.Header>
-                    <Modal.Title><b>Points history</b></Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <table className="table">
-                        <thead>
-                            <tr><th>Points</th><th>Message</th></tr>
-                        </thead>
-                        <tbody>
-                            {point.historyPoints && point.historyPoints.length > 0 ? (
-                                point.historyPoints.map((pnt) => (
-                                    <tr key={pnt.id ?? `${pnt.dateSent}-${pnt.message}`}>
-                                        <td>{pnt.pointsSent}</td>
-                                        <td>{pnt.message}</td>
-                                    </tr>
-                                ))
-                            ) : (
-                                <tr><td colSpan="2">No data</td></tr>
-                            )}
-                        </tbody>
-                    </table>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={handleClose}>Close</Button>
-                </Modal.Footer>
-            </Modal>
-        </React.Fragment>
+        </>
     );
 };
 

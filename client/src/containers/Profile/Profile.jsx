@@ -1,157 +1,156 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Button } from 'react-bootstrap';
-import { Link } from 'react-router-dom';
-import Header from '../Header/Header';
-import Footer from '../Footer/Footer';
+import { Link, useOutletContext } from 'react-router-dom';
+import Button from 'react-bootstrap/Button';
+import Spinner from 'react-bootstrap/Spinner';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPen, faTicket } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../services/auth';
-import { employeeApi, pointApi, voucherApi } from '../../services/apiClient';
-import './Profile.scss';
+import { pointApi, voucherApi } from '../../services/apiClient';
+import { formatDate } from '../../services/format';
+import PageHeader from '../../components/PageHeader';
+import EmptyState from '../../components/EmptyState';
+import Avatar from '../../components/Avatar';
+import PointsHistoryModal from '../../components/PointsHistoryModal';
 
 const Profile = () => {
     const { role, userId } = useAuth();
-    const [employee, setEmployee] = useState({});
-    const [point, setPoint] = useState({});
-    const [vouchers, setVouchers] = useState([]);
-    const [show, setShow] = useState(false);
-    const [error, setError] = useState(null);
+    const { employee } = useOutletContext();
+    const [wallet, setWallet] = useState(null);
+    const [vouchers, setVouchers] = useState(null); // null while loading
+    const [voucherError, setVoucherError] = useState(false);
+    const [showHistory, setShowHistory] = useState(false);
 
     useEffect(() => {
         if (!userId) return undefined;
         let cancelled = false;
         (async () => {
-            try {
-                const [empRes, pointRes, voucherRes] = await Promise.allSettled([
-                    employeeApi.get(`/${userId}`),
-                    pointApi.get(`/${userId}`),
-                    voucherApi.get(`/customers/${userId}/vouchers`),
-                ]);
-                if (cancelled) return;
-                if (empRes.status === 'fulfilled') setEmployee(empRes.value.data);
-                if (pointRes.status === 'fulfilled') setPoint(pointRes.value.data);
-                if (voucherRes.status === 'fulfilled') setVouchers(voucherRes.value.data);
-            } catch (err) {
-                if (!cancelled) setError(err.message);
-            }
+            const [walletRes, voucherRes] = await Promise.allSettled([
+                pointApi.get(`/${userId}`),
+                voucherApi.get(`/customers/${userId}/vouchers`),
+            ]);
+            if (cancelled) return;
+            if (walletRes.status === 'fulfilled') setWallet(walletRes.value.data);
+            const ok = voucherRes.status === 'fulfilled' && Array.isArray(voucherRes.value.data);
+            setVouchers(ok ? voucherRes.value.data : []);
+            setVoucherError(!ok);
         })();
         return () => { cancelled = true; };
     }, [userId]);
 
-    const handleClose = () => setShow(false);
-    const handleShow = () => setShow(true);
+    const details = [
+        ['Full name', employee?.name],
+        ['Date of birth', employee?.birthDate],
+        ['Gender', employee?.gender],
+        ['Phone number', employee?.phoneNumber],
+        ['Address', employee?.address],
+        ['ID card number', employee?.identifyId],
+        ['Tax number', employee?.taxNumber],
+        ['Bank account', employee?.bankNumber],
+    ];
 
     return (
-        <React.Fragment>
-            <Header />
-            <div className="profile-section">
-                <div className="row profile">
-                    <div className="col l-widget">
-                        <div className="avatar" align="center">
-                            {employee.avatar && (
-                                <img src={`data:image/jpeg;base64,${employee.avatar}`} alt="Avatar" />
-                            )}
-                            <h3>{employee.name}</h3>
-                        </div>
+        <>
+            <PageHeader
+                title="My profile"
+                actions={(
+                    <Link to="/edit-profile" className="btn btn-outline-secondary">
+                        <FontAwesomeIcon icon={faPen} /> Edit profile
+                    </Link>
+                )}
+            />
 
-                        <div className="point row" align="center">
-                            <h5> Points </h5>
-                            <h4>{point.totalPoint ?? 0}</h4>
-
-                            <div className="col-6">
-                                <Button variant="primary" onClick={handleShow}>
-                                    Points history
-                                </Button>
+            <div className="row g-4">
+                <div className="col-lg-4">
+                    <div className="card mb-4">
+                        <div className="card-body text-center py-4">
+                            <Avatar name={employee?.name} image={employee?.avatar} size="xl" />
+                            <h2 className="h5 mt-3 mb-1">{employee?.name || '—'}</h2>
+                            <div className="text-body-secondary">
+                                {[employee?.position, employee?.department].filter(Boolean).join(' · ') || 'No position set'}
                             </div>
-                            {role === 'Manager' && (
-                                <div className="col">
-                                    <Link to="/give-point" className="btn btn-success">Give points</Link>
-                                </div>
-                            )}
+                            <span className="badge badge-soft-primary mt-3">{role}</span>
                         </div>
                     </div>
-
-                    <div className="col-8">
-                        <div className="row info">
-                            <div align="right">
-                                <Link to="/edit-profile" className="btn btn-primary">Edit</Link>
+                    <div className="card">
+                        <div className="card-body">
+                            <div className="stat-label">Points balance</div>
+                            <div className="stat-value mb-3">{wallet?.totalPoint ?? '—'}</div>
+                            <div className="d-flex flex-wrap gap-2">
+                                <Button size="sm" variant="outline-secondary" onClick={() => setShowHistory(true)}>
+                                    View history
+                                </Button>
+                                {role === 'Manager' ? (
+                                    <Link to="/give-point" className="btn btn-sm btn-outline-primary">Give points</Link>
+                                ) : (
+                                    <Link to="/voucher" className="btn btn-sm btn-outline-primary">Redeem vouchers</Link>
+                                )}
                             </div>
-
-                            <table className="info-table table table-bordered">
-                                <tbody>
-                                    <tr><td className="title">Date of birth:</td><td>{employee.birthDate}</td></tr>
-                                    <tr><td className="title">Phone number:</td><td>{employee.phoneNumber}</td></tr>
-                                    <tr><td className="title">Address:</td><td>{employee.address}</td></tr>
-                                    <tr><td className="title">ID card number:</td><td>{employee.identifyId}</td></tr>
-                                    <tr><td className="title">Tax number:</td><td>{employee.taxNumber}</td></tr>
-                                    <tr><td className="title">Bank account:</td><td>{employee.bankNumber}</td></tr>
-                                </tbody>
-                            </table>
                         </div>
                     </div>
                 </div>
 
-                <div className="voucher-history">
-                    <h5>Redeemed vouchers</h5>
-                    <hr />
-                    {error && <div className="alert alert-warning">{error}</div>}
-                    <table className="table table-hover voucher-table">
-                        <thead>
-                            <tr>
-                                <th scope="col">Voucher</th>
-                                <th scope="col">Code</th>
-                                <th scope="col">Description</th>
-                                <th scope="col">Expires</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {vouchers.map((voucher) => (
-                                <tr key={voucher.id}>
-                                    <td><b>{voucher.campaign?.name}</b></td>
-                                    <td><i>{voucher.code}</i></td>
-                                    <td>{voucher.campaign?.description}</td>
-                                    <td>
-                                        {voucher.expires_at
-                                            ? new Date(voucher.expires_at).toLocaleDateString()
-                                            : 'N/A'}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                <div className="col-lg-8">
+                    <div className="card mb-4">
+                        <div className="card-header">
+                            <h2 className="card-title">Personal information</h2>
+                        </div>
+                        <div className="card-body">
+                            <dl className="detail-list">
+                                {details.map(([label, value]) => (
+                                    <React.Fragment key={label}>
+                                        <dt>{label}</dt>
+                                        <dd>{value || <span className="text-body-secondary">—</span>}</dd>
+                                    </React.Fragment>
+                                ))}
+                            </dl>
+                        </div>
+                    </div>
+
+                    <div className="card">
+                        <div className="card-header">
+                            <h2 className="card-title">Redeemed vouchers</h2>
+                        </div>
+                        {vouchers === null ? (
+                            <div className="text-center py-5"><Spinner animation="border" size="sm" /></div>
+                        ) : vouchers.length === 0 ? (
+                            <EmptyState icon={faTicket} title={voucherError ? 'Voucher service unavailable' : 'No vouchers yet'}>
+                                {voucherError
+                                    ? 'Your vouchers cannot be shown right now.'
+                                    : 'Vouchers you redeem will appear here.'}
+                            </EmptyState>
+                        ) : (
+                            <div className="table-responsive">
+                                <table className="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Voucher</th>
+                                            <th>Code</th>
+                                            <th>Expires</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {vouchers.map((voucher) => (
+                                            <tr key={voucher.id}>
+                                                <td>
+                                                    <div className="fw-medium text-body-emphasis">{voucher.campaign?.name}</div>
+                                                    <div className="small text-body-secondary">{voucher.campaign?.description}</div>
+                                                </td>
+                                                <td><code>{voucher.code}</code></td>
+                                                <td className="text-nowrap">
+                                                    {voucher.expires_at ? formatDate(voucher.expires_at) : 'No expiry'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
-            <Footer />
 
-            <Modal show={show} onHide={handleClose}>
-                <Modal.Header>
-                    <Modal.Title><b>Points history</b></Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <table className="table">
-                        <thead>
-                            <tr>
-                                <th>Points</th>
-                                <th>Message</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {point.historyPoints && point.historyPoints.length > 0 ? (
-                                point.historyPoints.map((pnt) => (
-                                    <tr key={pnt.id ?? `${pnt.dateSent}-${pnt.message}`}>
-                                        <td>{pnt.pointsSent}</td>
-                                        <td>{pnt.message || 'No message'}</td>
-                                    </tr>
-                                ))
-                            ) : (
-                                <tr><td colSpan="2">No data</td></tr>
-                            )}
-                        </tbody>
-                    </table>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={handleClose}>Close</Button>
-                </Modal.Footer>
-            </Modal>
-        </React.Fragment>
+            <PointsHistoryModal show={showHistory} onHide={() => setShowHistory(false)} history={wallet?.historyPoints} />
+        </>
     );
 };
 

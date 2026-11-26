@@ -1,68 +1,50 @@
 import React from 'react';
-import { Route, Routes, Navigate } from 'react-router-dom';
-import './App.scss';
+import { Navigate, Route, Routes } from 'react-router-dom';
 
+import Layout from './components/Layout';
+import LoginPage from './containers/Login/LoginPage';
+import HomePage from './containers/HomePages/HomePage';
 import Profile from './containers/Profile/Profile';
 import EditProfile from './containers/EditProfile/EditProfile';
-import CreateAccount from './containers/CreateAccount/CreateAccount'
-import HomePage from './containers/HomePages/HomePage';
-import Leave from './containers/Leave/Leave';
-import UpdateTimeSheet from './containers/UpdateTimeSheet/UpdateTimeSheet' ;
-import WorkFromHome from './containers/WorkFromHome/WorkFromHome';
-import Approve from './containers/Approve/Approve';
-import Activities from './containers/Activities/Activities';
-import GivePoint from './containers/GivePoint/GivePoint';
 import Voucher from './containers/Voucher/Voucher';
+import Leave from './containers/Leave/Leave';
+import WorkFromHome from './containers/WorkFromHome/WorkFromHome';
+import UpdateTimeSheet from './containers/UpdateTimeSheet/UpdateTimeSheet';
+import Approve from './containers/Approve/Approve';
+import GivePoint from './containers/GivePoint/GivePoint';
+import Activities from './containers/Activities/Activities';
+import CreateAccount from './containers/CreateAccount/CreateAccount';
 import ProtectedRoute from './services/ProtectedRoute';
-import ErrorBoundary from './services/ErrorBoundary';
+import { useAuth } from './services/auth';
 
-const withBoundary = (element) => <ErrorBoundary>{element}</ErrorBoundary>;
-
+const managerOnly = (element) => <ProtectedRoute roles={['Manager']} element={element} />;
+const employeeOnly = (element) => <ProtectedRoute roles={['Employee']} element={element} />;
 
 function App() {
-  return (
-    <Routes>
-      <Route path="/" element={withBoundary(<HomePage />)} />
-      <Route path="/profile" element={withBoundary(<Profile />)} />
-      <Route path="/edit-profile" element={withBoundary(<EditProfile />)} />
-      <Route path="/voucher" element={withBoundary(<Voucher />)} />
-      <Route
-        path="/create-account"
-        element={
-          <ProtectedRoute roles={['Manager']} element={withBoundary(<CreateAccount />)} />
-        }
-      />
-      <Route
-        path="/approve"
-        element={<ProtectedRoute roles={['Manager']} element={withBoundary(<Approve />)} />}
-      />
-      <Route
-        path="/activities"
-        element={<ProtectedRoute roles={['Manager']} element={withBoundary(<Activities />)} />}
-      />
-      <Route
-        path="/leave"
-        element={<ProtectedRoute roles={['Employee']} element={withBoundary(<Leave />)} />}
-      />
-      <Route
-        path="/update-time-sheet"
-        element={
-          <ProtectedRoute roles={['Employee']} element={withBoundary(<UpdateTimeSheet />)} />
-        }
-      />
-      <Route
-        path="/work-from-home"
-        element={<ProtectedRoute roles={['Employee']} element={withBoundary(<WorkFromHome />)} />}
-      />
-      <Route
-        path="/give-point"
-        element={<ProtectedRoute roles={['Manager']} element={withBoundary(<GivePoint />)} />}
-      />
+    const { isLoggedIn } = useAuth();
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+    if (!isLoggedIn) {
+        return <LoginPage />;
+    }
 
-    </Routes>
-  );
+    return (
+        <Routes>
+            <Route element={<Layout />}>
+                <Route index element={<HomePage />} />
+                <Route path="profile" element={<Profile />} />
+                <Route path="edit-profile" element={<EditProfile />} />
+                <Route path="voucher" element={<Voucher />} />
+                <Route path="leave" element={employeeOnly(<Leave />)} />
+                <Route path="work-from-home" element={employeeOnly(<WorkFromHome />)} />
+                <Route path="update-time-sheet" element={employeeOnly(<UpdateTimeSheet />)} />
+                <Route path="approve" element={managerOnly(<Approve />)} />
+                <Route path="give-point" element={managerOnly(<GivePoint />)} />
+                <Route path="activities" element={managerOnly(<Activities />)} />
+                <Route path="create-account" element={managerOnly(<CreateAccount />)} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+        </Routes>
+    );
 }
 
 export default App;
