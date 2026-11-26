@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../services/auth';
 import { employeeApi, requestApi } from '../../services/apiClient';
+import { statusBadgeClass } from '../../services/requestStatus';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { Form, Button } from "react-bootstrap";
 import Container from 'react-bootstrap/Container';
 import Row from 'react-bootstrap/Row';
-import Col from 'react-bootstrap/Col';
 import DetailLeave from './DetailLeave';
 
 import Header from '../Header/Header';
@@ -54,7 +54,7 @@ const Leave = () => {
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   };
 
-  // API lấy thông tin user và danh sách nghỉ phép
+  // Load the employee profile and their leave requests
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -89,7 +89,7 @@ const Leave = () => {
 
   const handleDateChange = (date, name) => {
     if (leaveMethod === 'oneday') {
-      // Đặt giờ phút cho timeStart là 00:00 và timeEnd là 23:59
+      // A single-day leave runs from 00:00 to 23:59
       const startDate = new Date(date);
       startDate.setHours(0, 0, 0, 0);
 
@@ -126,15 +126,12 @@ const Leave = () => {
 
   const leaveInfo = {
     "employeeId": userData.id,
-    "managerId": "2",
     "employeeName": userData.name,
     "requestType": "Leave",
     "timeStart": formatDateTime(new Date(leaveData.timeStart)),
     "timeEnd": formatDateTime(new Date(leaveData.timeEnd)),
     "reasonRequest": leaveData.reason,
-    "device": null,
-    "status": "Chưa duyệt",
-    "reasonReject": ""
+    "device": null
   }
 
   const handleSubmit = async (event) => {
@@ -144,20 +141,20 @@ const Leave = () => {
     setErrorTimeStart('');
     setErrorTimeEnd('');
     if (timeStart < today.setHours(0, 0, 0, 0)) {
-      setErrorTimeStart('Ngày bắt đầu không được nhỏ hơn ngày hiện tại.');
+      setErrorTimeStart('The start date cannot be in the past.');
       return;
     }
 
     if (timeEnd < timeStart) {
-      setErrorTimeEnd('Chọn ngày kết thúc lớn hơn ngày bắt đầu.');
+      setErrorTimeEnd('The end date must be after the start date.');
       return;
     }
 
     // API
     try {
-      const response = await requestApi.post(`/`, leaveInfo);
+      const response = await requestApi.post('', leaveInfo);
       if (response.status === 200) {
-        alert('Gửi yêu cầu thành công');
+        alert('Request submitted');
       } else {
         const message = response.data.message || 'An error occurred while login';
         alert(message);
@@ -179,7 +176,7 @@ const Leave = () => {
                        onClick={() => setLeaveMethod('oneday')}
                        checked={leaveMethod === 'oneday'}/>
                 <label className="form-check-label" htmlFor="oneday" onClick={() => setLeaveMethod('oneday')}>
-                  Nghỉ một ngày
+                  Single day
                 </label>
               </div>
               <div className="form-check">
@@ -187,7 +184,7 @@ const Leave = () => {
                        onClick={() => setLeaveMethod('severaldays')}
                        checked={leaveMethod === 'severaldays'}/>
                 <label className="form-check-label" htmlFor="severaldays">
-                  Nghỉ nhiều ngày
+                  Multiple days
                 </label>
               </div>
               <div className="form-check">
@@ -195,7 +192,7 @@ const Leave = () => {
                        onClick={() => setLeaveMethod('leaveList')}
                        checked={leaveMethod === 'leaveList'}/>
                 <label className="form-check-label" htmlFor="leaveList">
-                  Lịch sử xin nghỉ
+                  Leave history
                 </label>
               </div>
             </div>
@@ -205,11 +202,11 @@ const Leave = () => {
                   <table className="table leave-table table-nowrap align-middle table-borderless">
                     <thead className='sticky-header'>
                     <tr>
-                      <th scope="col">STT</th>
-                      <th scope="col">Nghỉ từ ngày</th>
-                      <th scope="col">Đến hết ngày</th>
-                      <th scope="col">Trạng thái</th>
-                      <th scope="col">Chi tiết</th>
+                      <th scope="col">#</th>
+                      <th scope="col">From</th>
+                      <th scope="col">To</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Details</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -219,14 +216,14 @@ const Leave = () => {
                           <td>{request.timeStart}</td>
                           <td>{request.timeEnd}</td>
                           <td>
-                            <span className={`badge ${request.status === 'Chấp thuận' ? 'badge-soft-success' : request.status === 'Từ chối' ? 'badge-soft-danger' : ''} mb-0`}>
+                            <span className={`badge ${statusBadgeClass(request.status)} mb-0`}>
                               {request.status}
                             </span>
                           </td>
                           <td>
                             <span className='text-decoration-underline detail'
                                   onClick={() => handleShowDetail(request)}>
-                              Xem thêm
+                              View
                             </span>
                           </td>
                         </tr>
@@ -239,7 +236,7 @@ const Leave = () => {
             <form action="#" onSubmit={(e) => handleSubmit(e)}>
               <div className={`datepick-frame ${leaveMethod !== 'leaveList' ? '' : 'd-none'}`}>
                 <div className='datepick'>
-                  <label className='col-sm-3 col-form-label'>Họ tên:</label>
+                  <label className='col-sm-3 col-form-label'>Full name:</label>
                   <Container>
                     <Row>
                       <Form.Group>
@@ -252,7 +249,7 @@ const Leave = () => {
                   </Container>
                 </div>
                 <div className='datepick'>
-                  <label className='col-sm-3 col-form-label'>Bộ phận:</label>
+                  <label className='col-sm-3 col-form-label'>Department:</label>
                   <Container>
                     <Row>
                       <Form.Group>
@@ -265,7 +262,7 @@ const Leave = () => {
                   </Container>
                 </div>
                 <div className='datepick'>
-                  <label className='col-sm-3 col-form-label'>Số điện thoại:</label>
+                  <label className='col-sm-3 col-form-label'>Phone number:</label>
                   <Container>
                     <Row>
                       <Form.Group>
@@ -278,7 +275,7 @@ const Leave = () => {
                   </Container>
                 </div>
                 <div className= {`datepick ${leaveMethod === 'oneday' ? '' : 'd-none'}`}>
-                  <label className='col-sm-3 col-form-label'>Chọn ngày nghỉ:</label>
+                  <label className='col-sm-3 col-form-label'>Date:</label>
                   <DatePicker
                       name = 'timeStart'
                       selected={leaveData.timeStart}
@@ -291,7 +288,7 @@ const Leave = () => {
                 </div>
                 <div className={`${leaveMethod === 'severaldays' ? '' : 'd-none'}`}>
                   <div className='datepick'>
-                    <label className='col-sm-3 col-form-label'>Nghỉ từ ngày:</label>
+                    <label className='col-sm-3 col-form-label'>From:</label>
                     <DatePicker
                         name = 'timeStart'
                         selected={leaveData.timeStart}
@@ -303,7 +300,7 @@ const Leave = () => {
                     {errorTimeStart && <div className="text-danger mx-3">{errorTimeStart}</div>}
                   </div>
                   <div className='datepick'>
-                    <label className='col-sm-3 col-form-label'>Đến hết ngày:</label>
+                    <label className='col-sm-3 col-form-label'>To:</label>
                     <DatePicker
                         name = 'timeEnd'
                         selected={leaveData.timeEnd}
@@ -317,7 +314,7 @@ const Leave = () => {
                   </div>
                 </div>
                 <div className='reason-frame'>
-                  <label>Lý do:</label>
+                  <label>Reason:</label>
                   <div className="form-group reason-input">
                     <textarea className="form-control"
                               id="reason"
@@ -328,7 +325,7 @@ const Leave = () => {
                           </textarea>
                   </div>
                 </div>
-                <Button type='submit'>Gửi</Button>
+                <Button type='submit'>Submit</Button>
               </div>
             </form>
           </div>

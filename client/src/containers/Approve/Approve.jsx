@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { requestApi } from '../../services/apiClient';
+import { statusBadgeClass } from '../../services/requestStatus';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowRight, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 
@@ -99,11 +100,11 @@ const Approve = () => {
                                 <table className="table uts-table table-nowrap align-middle table-borderless">
                                     <thead className='sticky-header'>
                                     <tr>
-                                        <th scope="col">STT</th>
-                                        <th scope="col">Nhân viên</th>
-                                        <th scope="col">Loại yêu cầu</th>
-                                        <th scope="col">Trạng thái</th>
-                                        <th scope="col">Chi tiết</th>
+                                        <th scope="col">#</th>
+                                        <th scope="col">Employee</th>
+                                        <th scope="col">Request type</th>
+                                        <th scope="col">Status</th>
+                                        <th scope="col">Details</th>
                                     </tr>
                                     </thead>
                                     <tbody>
@@ -121,14 +122,14 @@ const Approve = () => {
                                                 <td>
                                                         <span className='text-decoration-underline detail'
                                                               onClick={() => handleShowDetail(request.id)}>
-                                                            Xem thêm
+                                                            View
                                                         </span>
                                                 </td>
                                             </tr>
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan="5">Không có dữ liệu</td>
+                                            <td colSpan="5">No data</td>
                                         </tr>
                                     )}
                                     </tbody>
@@ -142,11 +143,11 @@ const Approve = () => {
                                 <table className="table uts-table table-nowrap align-middle table-borderless">
                                     <thead className='sticky-header'>
                                     <tr>
-                                        <th scope="col">STT</th>
-                                        <th scope="col">Nhân viên</th>
-                                        <th scope="col">Loại yêu cầu</th>
-                                        <th scope="col">Trạng thái</th>
-                                        <th scope="col">Chi tiết</th>
+                                        <th scope="col">#</th>
+                                        <th scope="col">Employee</th>
+                                        <th scope="col">Request type</th>
+                                        <th scope="col">Status</th>
+                                        <th scope="col">Details</th>
                                     </tr>
                                     </thead>
                                     <tbody>
@@ -157,21 +158,21 @@ const Approve = () => {
                                                 <td>{request.employeeName}</td>
                                                 <td>{request.requestType}</td>
                                                 <td>
-                                                        <span className={`badge ${request.status === 'Chấp thuận' ? 'badge-soft-success' : 'badge-soft-danger'} mb-0`}>
+                                                        <span className={`badge ${statusBadgeClass(request.status)} mb-0`}>
                                                             {request.status}
                                                         </span>
                                                 </td>
                                                 <td>
                                                         <span className='text-decoration-underline detail'
                                                               onClick={() => handleShowDetail(request.id)}>
-                                                            Xem thêm
+                                                            View
                                                         </span>
                                                 </td>
                                             </tr>
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan="5">Không có dữ liệu</td>
+                                            <td colSpan="5">No data</td>
                                         </tr>
                                     )}
                                     </tbody>

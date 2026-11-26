@@ -1,11 +1,14 @@
 package com.example.requestservice.service;
 
+import com.example.requestservice.exception.NotFoundException;
 import com.example.requestservice.model.Request;
+import com.example.requestservice.model.RequestStatus;
 import com.example.requestservice.repository.RequestRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/** Leave / work-from-home / timesheet-update requests and their approval workflow. */
 @Service
 public class RequestService {
 
@@ -20,52 +23,54 @@ public class RequestService {
     }
 
     public Request getRequestById(String id) {
-        return requestRepository.findById(id).orElse(null);
+        return requestRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Request not found: " + id));
     }
 
+    /** New requests always start as pending, whatever status the client sent. */
     public Request createRequest(Request request) {
+        if (request == null || !RequestStatus.TYPES.contains(request.getRequestType())) {
+            throw new IllegalArgumentException("requestType must be one of " + RequestStatus.TYPES);
+        }
+        request.setId(null);
+        request.setStatus(RequestStatus.PENDING);
+        request.setReasonReject("");
         return requestRepository.save(request);
     }
 
-    public Request updateRequest(Request request) {
+    public Request approveRequest(String id) {
+        Request request = getPendingRequest(id);
+        request.setStatus(RequestStatus.APPROVED);
         return requestRepository.save(request);
     }
 
-    public void deleteRequest(String id) {
-        requestRepository.deleteById(id);
-    }
-
-    public Request approveRequest(String id, String status) {
-        Request request = requestRepository.findById(id).orElse(null);
-        if (request != null) {
-            request.setStatus(status);
-            return requestRepository.save(request);
+    public Request rejectRequest(String id, String reasonReject) {
+        if (reasonReject == null || reasonReject.isBlank()) {
+            throw new IllegalArgumentException("A rejection reason is required");
         }
-        return null;
+        Request request = getPendingRequest(id);
+        request.setStatus(RequestStatus.REJECTED);
+        request.setReasonReject(reasonReject.trim());
+        return requestRepository.save(request);
     }
 
-    public Request rejectRequest(String id, String status, String reasonReject) {
-        Request request = requestRepository.findById(id).orElse(null);
-        if (request != null) {
-            request.setStatus(status);
-            request.setReasonReject(reasonReject);
-            return requestRepository.save(request);
+    public List<Request> getPendingRequests() {
+        return requestRepository.findByStatus(RequestStatus.PENDING);
+    }
+
+    public List<Request> getReviewedRequests() {
+        return requestRepository.findByStatusNot(RequestStatus.PENDING);
+    }
+
+    public List<Request> getRequestsByType(String requestType) {
+        return requestRepository.findByRequestType(requestType);
+    }
+
+    private Request getPendingRequest(String id) {
+        Request request = getRequestById(id);
+        if (!RequestStatus.PENDING.equals(request.getStatus())) {
+            throw new IllegalStateException("Request " + id + " has already been reviewed");
         }
-        return null;
-    }
-    public List<Request> getRequestsByStatus(String status) {
-        return requestRepository.findByStatus(status);
-    }
-
-    public List<Request> getRequestsByStatusNot(String status) {
-        return requestRepository.findByStatusNot(status);
-    }
-
-    public List<Request> getLeaveRequests() {
-        return requestRepository.findByRequestType("Leave");
-    }
-
-    public List<Request> getUpdateTimeSheetRequests() {
-        return requestRepository.findByRequestType("Update");
+        return request;
     }
 }

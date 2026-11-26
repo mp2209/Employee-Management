@@ -11,20 +11,13 @@ import './GivePoint.scss';
 const GivePoint = () => {
     const [employees, setEmployees] = useState([]);
     const [show, setShow] = useState(false);
-    const [curEmp, setCurEmp] = useState({
-        'id': 0,
-        'name': '',
-        'point': 0,
-    });
+    const [curEmp, setCurEmp] = useState({ userId: 0, name: '', point: 0 });
     const { userId } = useAuth();
 
     const handleClose = () => setShow(false);
     const handleShow = () => setShow(true);
 
-    const [formData, setFormData] = useState({
-        point: '',
-        message: ''
-    });
+    const [formData, setFormData] = useState({ point: '', message: '' });
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -36,21 +29,19 @@ const GivePoint = () => {
         (async () => {
             try {
                 const [employeeResponse, pointResponse] = await Promise.all([
-                    employeeApi.get('/'),
-                    pointApi.get('/'),
+                    employeeApi.get(''),
+                    pointApi.get(''),
                 ]);
                 if (cancelled) return;
-                if (employeeResponse.status === 200 && pointResponse.status === 200) {
-                    const employees = employeeResponse.data;
-                    const points = pointResponse.data;
-                    const updatedEmployees = employees
-                        .filter((employee) => employee.id !== parseInt(userId, 10))
-                        .map((employee) => {
-                            const pointRecord = points.find((point) => point.uid === employee.id);
-                            return { ...employee, point: pointRecord ? pointRecord.totalPoint : 0 };
-                        });
-                    setEmployees(updatedEmployees);
-                }
+                const points = pointResponse.data;
+                // Wallets are keyed by the owner's user id, not by the employee profile id.
+                const others = employeeResponse.data
+                    .filter((employee) => employee.userId !== Number(userId))
+                    .map((employee) => {
+                        const wallet = points.find((point) => point.uid === employee.userId);
+                        return { ...employee, point: wallet ? wallet.totalPoint : 0 };
+                    });
+                setEmployees(others);
             } catch (error) {
                 if (!cancelled) {
                     alert(`Error fetching data: ${error.message}`);
@@ -62,26 +53,20 @@ const GivePoint = () => {
 
     const handleSubmit = async (event) => {
         event.preventDefault();
-        const { id: employeeId } = curEmp;
-
         try {
-            const response = await pointApi.post(`/send`, null, {
+            const { data } = await pointApi.post('/send', null, {
                 params: {
                     managerId: userId,
-                    employeeId,
+                    employeeId: curEmp.userId,
                     points: formData.point,
                     message: formData.message
                 }
             });
-            if (response.status === 200) {
-                alert('Gửi yêu cầu thành công');
-            } else {
-                const message = response.data?.message || 'An error occurred while updating';
-                alert(message);
-            }
+            setEmployees((prev) => prev.map((employee) =>
+                employee.userId === curEmp.userId ? { ...employee, point: data.totalPoint } : employee));
+            alert('Points sent');
         } catch (error) {
-            const message = error.response?.data?.message || error.message || 'An error occurred while updating';
-            alert(message);
+            alert(error.message || 'An error occurred while sending points');
         }
         handleClose();
     };
@@ -94,7 +79,7 @@ const GivePoint = () => {
                     <div className="d-flex align-items-center m-3 update-timesheet-header">
                         <div className="col-md-6">
                             <div className="mb-3">
-                                <h5 className="card-title">Danh sách nhân viên</h5>
+                                <h5 className="card-title">Employees</h5>
                             </div>
                         </div>
                     </div>
@@ -104,12 +89,12 @@ const GivePoint = () => {
                                 <table className="table uts-table table-nowrap align-middle table-borderless">
                                     <thead className='sticky-header'>
                                     <tr>
-                                        <th scope="col">Tên</th>
-                                        <th scope="col">Ngày sinh</th>
-                                        <th scope="col">Địa chỉ</th>
-                                        <th scope="col">Vị trí</th>
-                                        <th scope="col">Bộ phận</th>
-                                        <th scope="col">Điểm</th>
+                                        <th scope="col">Name</th>
+                                        <th scope="col">Date of birth</th>
+                                        <th scope="col">Address</th>
+                                        <th scope="col">Position</th>
+                                        <th scope="col">Department</th>
+                                        <th scope="col">Points</th>
                                         <th scope="col"></th>
                                     </tr>
                                     </thead>
@@ -125,21 +110,22 @@ const GivePoint = () => {
                                                 <td className="point">{employee.point}</td>
                                                 <td>
                                                     <Button variant="primary" onClick={() => {
-                                                        handleShow();
                                                         setCurEmp({
-                                                            'id': employee.id,
-                                                            'name': employee.name,
-                                                            'point': employee.point
+                                                            userId: employee.userId,
+                                                            name: employee.name,
+                                                            point: employee.point
                                                         });
+                                                        setFormData({ point: '', message: '' });
+                                                        handleShow();
                                                     }}>
-                                                        Thêm điểm
+                                                        Give points
                                                     </Button>
                                                 </td>
                                             </tr>
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan="5">Không có dữ liệu</td>
+                                            <td colSpan="7">No data</td>
                                         </tr>
                                     )}
                                     </tbody>
@@ -153,48 +139,50 @@ const GivePoint = () => {
             <Footer />
 
             <Modal show={show} onHide={handleClose}>
-                <form onSubmit={(e) => handleSubmit(e)}>
+                <Form onSubmit={handleSubmit}>
                     <Modal.Header>
                         <Modal.Title className="row modal-add-point">
                             <div className="col">
                                 {curEmp.name}
                             </div>
                             <div className="col" align="right">
-                                Điểm: <b>{curEmp.point}</b>
+                                Points: <b>{curEmp.point}</b>
                             </div>
                         </Modal.Title>
                     </Modal.Header>
                     <Modal.Body>
-                        <Form>
-                            <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
-                                <Form.Label className='fw-bold'>Điểm được cho: </Form.Label>
-                                <Form.Control
-                                    type="number"
-                                    name="point"
-                                    onChange={handleChange}
-                                />
-                            </Form.Group>
+                        <Form.Group className="mb-3" controlId="givePointAmount">
+                            <Form.Label className='fw-bold'>Points to give: </Form.Label>
+                            <Form.Control
+                                type="number"
+                                name="point"
+                                min="1"
+                                value={formData.point}
+                                onChange={handleChange}
+                                required
+                            />
+                        </Form.Group>
 
-                            <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
-                                <Form.Label className='fw-bold'>Lời nhắn: </Form.Label>
-                                <Form.Control
-                                    as="textarea"
-                                    name="message"
-                                    row={3}
-                                    onChange={handleChange}
-                                />
-                            </Form.Group>
-                        </Form>
+                        <Form.Group className="mb-3" controlId="givePointMessage">
+                            <Form.Label className='fw-bold'>Message: </Form.Label>
+                            <Form.Control
+                                as="textarea"
+                                name="message"
+                                rows={3}
+                                value={formData.message}
+                                onChange={handleChange}
+                            />
+                        </Form.Group>
                     </Modal.Body>
                     <Modal.Footer>
                         <Button variant="secondary" onClick={handleClose}>
                             Close
                         </Button>
-                        <Button variant="primary" type="submit" onClick={handleClose}>
+                        <Button variant="primary" type="submit">
                             Confirm
                         </Button>
                     </Modal.Footer>
-                </form>
+                </Form>
             </Modal>
         </React.Fragment>
     );

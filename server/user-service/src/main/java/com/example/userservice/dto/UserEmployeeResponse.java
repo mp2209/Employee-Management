@@ -1,40 +1,23 @@
 package com.example.userservice.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class UserEmployeeResponse {
     private UserDTO user;
     private EmployeeDTO employee;
+
+    /** Generated password for a new account. Returned once, at creation time, and never stored in plain text. */
+    private String temporaryPassword;
+
     private String message;
-
-    // Constructors, Getters, and Setters
-
-    public UserEmployeeResponse() {}
 
     public UserEmployeeResponse(UserDTO user, EmployeeDTO employee) {
         this.user = user;
         this.employee = employee;
-    }
-
-    public UserDTO getUser() {
-        return user;
-    }
-
-    public void setUser(UserDTO user) {
-        this.user = user;
-    }
-
-    public EmployeeDTO getEmployee() {
-        return employee;
-    }
-
-    public void setEmployee(EmployeeDTO employee) {
-        this.employee = employee;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
     }
 }

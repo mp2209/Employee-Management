@@ -1,0 +1,186 @@
+# Whole stack:          docker compose up -d --build      (make up)
+# Infrastructure only:  docker compose up -d mysql mongo rabbitmq   (make infra)
+#
+# Only the web app (3000), the gateway (8080) and the Eureka dashboard (8761) are published,
+# along with the infrastructure ports for local development. The microservices themselves
+# are reachable only through the gateway, which authenticates every request.
+
+name: udpt
+
+x-healthcheck: &spring-healthcheck
+  interval: 10s
+  timeout: 5s
+  retries: 18
+  start_period: 30s
+
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: mysql
+      MYSQL_DATABASE: ProfileService
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      # TCP (not the socket) so the check fails while the init server runs with networking off.
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pmysql"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  mongo:
+    image: mongo:7.0
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongo
+      MONGO_INITDB_ROOT_PASSWORD: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    ports:
+      - "5672:5672"
+      - "15672:15672" # management UI, guest / guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+
+  eureka-server:
+    build:
+      context: ./server
+      args:
+        MODULE: eureka-server
+    image: udpt/eureka-server
+    mem_limit: 512m
+    ports:
+      - "8761:8761"
+    healthcheck:
+      <<: *spring-healthcheck
+      test: ["CMD", "curl", "-fsS", "http://localhost:8761/actuator/health"]
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: ./server
+      args:
+        MODULE: api-gateway
+    image: udpt/api-gateway
+    mem_limit: 512m
+    environment:
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET:-change-me-dev-only-jwt-secret-at-least-32-bytes}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      VOUCHERY_API_KEY: ${VOUCHERY_API_KEY:-}
+    ports:
+      - "8080:8080"
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      <<: *spring-healthcheck
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: ./server
+      args:
+        MODULE: user-service
+    image: udpt/user-service
+    mem_limit: 512m
+    environment:
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      DB_URL: jdbc:mysql://mysql:3306/ProfileService
+      DB_USERNAME: root
+      DB_PASSWORD: mysql
+      RABBITMQ_HOST: rabbitmq
+      JWT_SECRET: ${JWT_SECRET:-change-me-dev-only-jwt-secret-at-least-32-bytes}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      <<: *spring-healthcheck
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/actuator/health"]
+    restart: unless-stopped
+
+  request-service:
+    build:
+      context: ./server
+      args:
+        MODULE: request-service
+    image: udpt/request-service
+    mem_limit: 512m
+    environment:
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      MONGO_HOST: mongo
+      MONGO_DATABASE: RequestDB
+    depends_on:
+      mongo:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      <<: *spring-healthcheck
+      test: ["CMD", "curl", "-fsS", "http://localhost:8082/actuator/health"]
+    restart: unless-stopped
+
+  reward-point-service:
+    build:
+      context: ./server
+      args:
+        MODULE: rewardPoint-service
+    image: udpt/reward-point-service
+    mem_limit: 512m
+    environment:
+      EUREKA_URL: http://eureka-server:8761/eureka/
+      MONGO_HOST: mongo
+      MONGO_DATABASE: RewardPointDB
+      RABBITMQ_HOST: rabbitmq
+      VOUCHERY_API_KEY: ${VOUCHERY_API_KEY:-}
+      STRAVA_CLIENT_ID: ${STRAVA_CLIENT_ID:-}
+      STRAVA_CLIENT_SECRET: ${STRAVA_CLIENT_SECRET:-}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    healthcheck:
+      <<: *spring-healthcheck
+      test: ["CMD", "curl", "-fsS", "http://localhost:8084/actuator/health"]
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ./client
+      args:
+        REACT_APP_API_GATEWAY_URL: ${PUBLIC_GATEWAY_URL:-http://localhost:8080}
+        REACT_APP_STRAVA_CLIENT_ID: ${STRAVA_CLIENT_ID:-}
+        REACT_APP_STRAVA_CLUB_ID: ${STRAVA_CLUB_ID:-}
+    image: udpt/client
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  mongo-data:

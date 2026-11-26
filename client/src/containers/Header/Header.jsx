@@ -5,7 +5,6 @@ import { useAuth } from '../../services/auth';
 import { userApi, employeeApi } from '../../services/apiClient';
 
 import './Header.scss';
-import avatar from '../../assets/avatar.png';
 
 const Header = () => {
     const { isLoggedIn, role, userId, login, logout } = useAuth();
@@ -63,10 +62,10 @@ const Header = () => {
     }, [logout, navigate]);
 
     const navLinks = useMemo(() => {
-        const links = [{ to: '/', label: 'Thông báo' }];
+        const links = [{ to: '/', label: 'Announcements' }];
         if (role === 'Employee') {
             links.push(
-                { to: '/leave', label: 'Nghỉ phép' },
+                { to: '/leave', label: 'Leave' },
                 { to: '/update-time-sheet', label: 'Update Time-sheet' },
                 { to: '/work-from-home', label: 'Work from home' }
             );
@@ -74,6 +73,7 @@ const Header = () => {
         if (role === 'Manager') {
             links.push(
                 { to: '/approve', label: 'Approve' },
+                { to: '/give-point', label: 'Give Point' },
                 { to: '/activities', label: 'Activities' }
             );
         }
@@ -90,7 +90,7 @@ const Header = () => {
                 <div className="header-top-nav">
                     <div className="logo-banner-frame">
                         <NavLink to="/">
-                            <h2>Project</h2>
+                            <h2>UDPT</h2>
                         </NavLink>
                     </div>
                     {!isLoggedIn ? (
@@ -128,7 +128,7 @@ const Header = () => {
                                 </div>
                             </NavLink>
                             <button type="button" className="btn btn-dark logout-btn" onClick={handleLogout}>
-                                Đăng xuất
+                                Log out
                             </button>
                         </div>
                     )}

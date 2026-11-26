@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { requestApi } from '../../services/apiClient';
-import { Form, Button } from "react-bootstrap";
+import { statusBadgeClass } from '../../services/requestStatus';
+import { Button } from "react-bootstrap";
 
 import Header from '../Header/Header';
 import RightSidebar from '../RightSidebar/RightSidebar';
@@ -69,7 +70,7 @@ const UpdateTimeSheet = () => {
                         </div>
                         <div className="col-md-6">
                             <div className="d-flex flex-wrap align-items-center justify-content-end gap-2 mb-3">
-                                <Button onClick={handleShowAdd}>Thêm mới</Button>
+                                <Button onClick={handleShowAdd}>New request</Button>
                             </div>
                         </div>
                     </div>
@@ -79,11 +80,11 @@ const UpdateTimeSheet = () => {
                                 <table className="table uts-table table-nowrap align-middle table-borderless">
                                     <thead className='sticky-header'>
                                     <tr>
-                                        <th scope="col">Ngày</th>
-                                        <th scope="col">Bắt đầu</th>
-                                        <th scope="col">Kết thúc</th>
-                                        <th scope="col">Trạng thái</th>
-                                        <th scope="col">Chi tiết</th>
+                                        <th scope="col">Date</th>
+                                        <th scope="col">Start</th>
+                                        <th scope="col">End</th>
+                                        <th scope="col">Status</th>
+                                        <th scope="col">Details</th>
                                     </tr>
                                     </thead>
                                     <tbody>
@@ -94,21 +95,21 @@ const UpdateTimeSheet = () => {
                                                 <td>{request.timeStart}</td>
                                                 <td>{request.timeEnd}</td>
                                                 <td>
-                            <span className={`badge ${request.status === 'Chấp thuận' ? 'badge-soft-success' : 'badge-soft-danger'} mb-0`}>
+                            <span className={`badge ${statusBadgeClass(request.status)} mb-0`}>
                                 {request.status}
                             </span>
                                                 </td>
                                                 <td>
                                                     <span className='text-decoration-underline detail'
                                                           onClick={() => handleShowDetail(request.id)}>
-                                                        Xem thêm
+                                                        View
                                                       </span>
                                                 </td>
                                             </tr>
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan="5">Không có dữ liệu</td>
+                                            <td colSpan="5">No data</td>
                                         </tr>
                                     )}
                                     </tbody>

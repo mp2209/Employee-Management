@@ -3,6 +3,8 @@ import { NavLink } from 'react-router-dom';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { Modal, Button } from 'react-bootstrap';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPenToSquare } from '@fortawesome/free-solid-svg-icons';
 
 import Header from '../Header/Header';
 import Footer from '../Footer/Footer';
@@ -78,7 +80,7 @@ const EditProfile = () => {
         try {
             const response = await employeeApi.put(`/${userId}`, employee);
             if (response.status === 200) {
-                setStatusMessage({ type: 'success', text: 'Gửi yêu cầu thành công' });
+                setStatusMessage({ type: 'success', text: 'Profile updated' });
             } else {
                 setStatusMessage({ type: 'error', text: response.data?.message || 'Update failed' });
             }
@@ -99,9 +101,11 @@ const EditProfile = () => {
                             ) : (
                                 <img src={avatar} alt="Avatar" />
                             )}
-                            <i
-                                className="edit-avatar fa fa-pencil-square-o"
-                                aria-hidden="true"
+                            <FontAwesomeIcon
+                                icon={faPenToSquare}
+                                className="edit-avatar"
+                                role="button"
+                                title="Change avatar"
                                 onClick={() => document.getElementById('fileInput').click()}
                             />
                             <input
@@ -114,17 +118,17 @@ const EditProfile = () => {
                             <h3>{employee.name}</h3>
                         </div>
                         <div className="point row" align="center">
-                            <h5>Điểm</h5>
+                            <h5>Points</h5>
                             <h4>{point.totalPoint ?? 0}</h4>
 
                             <div className="col-6">
                                 <Button variant="primary" onClick={handleShow}>
-                                    {role === 'Manager' ? 'Lịch sử cho điểm' : 'Lịch sử nhận điểm'}
+                                    Points history
                                 </Button>
                             </div>
                             {role === 'Manager' && (
                                 <div className="col">
-                                    <a href="give-point" className="btn btn-success">Cho điểm</a>
+                                    <NavLink to="/give-point" className="btn btn-success">Give points</NavLink>
                                 </div>
                             )}
                         </div>
@@ -132,13 +136,13 @@ const EditProfile = () => {
                     <div className="col-8">
                         <div className="row info">
                             <div align="right">
-                                <NavLink to="/profile" className="btn btn-secondary">Trở về</NavLink>
+                                <NavLink to="/profile" className="btn btn-secondary">Back</NavLink>
                             </div>
                             <form onSubmit={handleSubmit}>
                                 <table className="info-table table table-bordered">
                                     <tbody>
                                         <tr>
-                                            <td className="title">Ngày sinh:</td>
+                                            <td className="title">Date of birth:</td>
                                             <td>
                                                 <DatePicker
                                                     selected={selectedDate}
@@ -149,7 +153,7 @@ const EditProfile = () => {
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td className="title">Số điện thoại:</td>
+                                            <td className="title">Phone number:</td>
                                             <td>
                                                 <input className="form-control" type="text"
                                                     name="phoneNumber" defaultValue={employee.phoneNumber}
@@ -157,7 +161,7 @@ const EditProfile = () => {
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td className="title">Địa chỉ:</td>
+                                            <td className="title">Address:</td>
                                             <td>
                                                 <input className="form-control" type="text"
                                                     name="address" defaultValue={employee.address}
@@ -165,7 +169,7 @@ const EditProfile = () => {
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td className="title">CCCD:</td>
+                                            <td className="title">ID card number:</td>
                                             <td>
                                                 <input className="form-control" type="text"
                                                     name="identifyId" defaultValue={employee.identifyId}
@@ -173,7 +177,7 @@ const EditProfile = () => {
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td className="title">Mã số thuế:</td>
+                                            <td className="title">Tax number:</td>
                                             <td>
                                                 <input className="form-control" type="text"
                                                     name="taxNumber" defaultValue={employee.taxNumber}
@@ -181,7 +185,7 @@ const EditProfile = () => {
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td className="title">STK ngân hàng:</td>
+                                            <td className="title">Bank account:</td>
                                             <td>
                                                 <input className="form-control" type="text"
                                                     name="bankNumber" defaultValue={employee.bankNumber}
@@ -191,7 +195,7 @@ const EditProfile = () => {
                                     </tbody>
                                 </table>
                                 <div align="right">
-                                    <button className="btn btn-primary" type="submit">Xác nhận</button>
+                                    <button className="btn btn-primary" type="submit">Save</button>
                                 </div>
                             </form>
                             {statusMessage && (
@@ -207,12 +211,12 @@ const EditProfile = () => {
 
             <Modal show={show} onHide={handleClose}>
                 <Modal.Header>
-                    <Modal.Title><b>Lịch sử nhận điểm</b></Modal.Title>
+                    <Modal.Title><b>Points history</b></Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
                     <table className="table">
                         <thead>
-                            <tr><th>Điểm nhận được</th><th>Lời nhắn</th></tr>
+                            <tr><th>Points</th><th>Message</th></tr>
                         </thead>
                         <tbody>
                             {point.historyPoints && point.historyPoints.length > 0 ? (
@@ -223,7 +227,7 @@ const EditProfile = () => {
                                     </tr>
                                 ))
                             ) : (
-                                <tr><td colSpan="2">Không có dữ liệu</td></tr>
+                                <tr><td colSpan="2">No data</td></tr>
                             )}
                         </tbody>
                     </table>

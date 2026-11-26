@@ -1,15 +1,15 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { employeeApi, requestApi } from '../../services/apiClient';
+import { REQUEST_STATUS, statusBadgeClass } from '../../services/requestStatus';
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
 import Form from 'react-bootstrap/Form';
 
-import './Request_Detail.scss';
+import './RequestDetail.scss';
 
 export function RequestDetail({show, id, handleClose, handleConfirm}) {
 
     const [rejectionReason, setRejectionReason] = useState('');
-    const [accept, setAccept] = useState('Chưa duyệt');
     const [error, setError] = useState('');
     const [requestData, setRequestData] = useState([]);
 
@@ -17,11 +17,11 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
         const fetchData = async () => {
             if (id) {
                 try {
-                    // API lấy thông tin chi tiết request
+                    // Load the request details
                     const response = await requestApi.get(`/${id}`);
                     if (response.status === 200) {
                         setRequestData(response.data);
-                        setRejectionReason(response.data.reasonReject);
+                        setRejectionReason(response.data.reasonReject ?? '');
                     } else {
                         console.error("Error fetching user data");
                     }
@@ -33,14 +33,7 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
         fetchData();
     }, [id]);
 
-    const requestInfo = {
-        "id": requestData.id,
-        "status": accept,
-        "reasonReject": rejectionReason
-    }
-
     const handleSubmit = async (event) => {
-        setAccept("Chấp thuận");
         try {
             if (requestData.requestType === "Update") {
                 // Call the /update-checkin-checkout API
@@ -59,14 +52,9 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
                 }
             }
 
-            // API cập nhật trường Status của request thành "Chấp thuận"
-            const response = await requestApi.put(`/${id}/approve`, null, {
-                params: {
-                    status: "Chấp thuận"
-                }
-            });
+            const response = await requestApi.put(`/${id}/approve`);
             if (response.status === 200) {
-                alert('Cập nhật thành công');
+                alert('Updated successfully');
             } else {
                 const message = response.data.message || 'An error occurred while updating';
                 alert(message);
@@ -80,19 +68,17 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
 
     const handleReject = async (event) => {
         if (rejectionReason.trim() === '') {
-            setError('Lý do từ chối không được để trống.');
+            setError('Please enter a rejection reason.');
         } else {
             setError('');
-            setAccept("Từ chối");
             try {
                 const response = await requestApi.put(`/${id}/reject`, null, {
                     params: {
-                        status: "Từ chối",
                         reasonReject: rejectionReason
                     }
                 });
                 if (response.status === 200) {
-                    alert('Cập nhật thành công');
+                    alert('Updated successfully');
                 } else {
                     const message = response.data.message || 'An error occurred while updating';
                     alert(message);
@@ -109,13 +95,13 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
     return (
         <Modal show={show} onHide={handleClose} size='lg'>
             <Modal.Header closeButton>
-                <Modal.Title>Chi tiết yêu cầu</Modal.Title>
+                <Modal.Title>Request details</Modal.Title>
             </Modal.Header>
             <Modal.Body className="d-flex flex-column">
                 <div className="first-info">
                     <Form className="d-flex justify-content-between flex-wrap">
                         <Form.Group className="mb-3 custom-width">
-                            <Form.Label>Mã nhân viên:</Form.Label>
+                            <Form.Label>Employee ID:</Form.Label>
                             <Form.Control
                                 type="text"
                                 value={requestData.employeeId}
@@ -125,7 +111,7 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
                             />
                         </Form.Group>
                         <Form.Group className="mb-3 custom-width">
-                            <Form.Label>Họ tên:</Form.Label>
+                            <Form.Label>Full name:</Form.Label>
                             <Form.Control
                                 type="text"
                                 value={requestData.employeeName}
@@ -135,7 +121,7 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
                             />
                         </Form.Group>
                         <Form.Group className="mb-3 custom-width">
-                            <Form.Label>Loại yêu cầu:</Form.Label>
+                            <Form.Label>Request type:</Form.Label>
                             <Form.Control
                                 type="text"
                                 value={requestData.requestType}
@@ -144,20 +130,12 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
                             />
                         </Form.Group>
                         <Form.Group className="mb-3 custom-width">
-                            <Form.Label>Trạng thái:</Form.Label>
+                            <Form.Label>Status:</Form.Label>
                             <Form.Control
                                 type="text"
                                 value={requestData.status}
                                 disabled
-                                className={
-                                    requestData.status === 'Chưa duyệt'
-                                      ? 'badge-soft-warning'
-                                      : requestData.status === 'Chấp thuận'
-                                      ? 'badge-soft-success'
-                                      : requestData.status === 'Từ chối'
-                                      ? 'badge-soft-danger'
-                                      : ''
-                                }
+                                className={statusBadgeClass(requestData.status)}
                             />
                         </Form.Group>
                     </Form>
@@ -167,7 +145,7 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
                         {requestData.requestType !== 'Update' ? (
                         <>
                             <Form.Group className="mb-3 custom-width">
-                                <Form.Label>Bắt đầu:</Form.Label>
+                                <Form.Label>Start:</Form.Label>
                                 <Form.Control
                                     type="text"
                                     value={requestData.timeStart}
@@ -177,7 +155,7 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
                                 />
                             </Form.Group>
                             <Form.Group className="mb-3 custom-width">
-                                <Form.Label>Kết thúc:</Form.Label>
+                                <Form.Label>End:</Form.Label>
                                 <Form.Control
                                     type="text"
                                     value={requestData.timeEnd}
@@ -190,7 +168,7 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
                         ) : (
                         <>
                             <Form.Group className="mb-3 w-25">
-                                <Form.Label>Ngày:</Form.Label>
+                                <Form.Label>Date:</Form.Label>
                                 <Form.Control
                                     type="text"
                                     value={requestData.day}
@@ -200,7 +178,7 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
                                 />
                             </Form.Group>
                             <Form.Group className="mb-3 w-25">
-                                <Form.Label>Bắt đầu:</Form.Label>
+                                <Form.Label>Start:</Form.Label>
                                 <Form.Control
                                     type="text"
                                     value={requestData.timeStart}
@@ -210,7 +188,7 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
                                 />
                             </Form.Group>
                             <Form.Group className="mb-3 w-25">
-                                <Form.Label>Kết thúc:</Form.Label>
+                                <Form.Label>End:</Form.Label>
                                 <Form.Control
                                     type="text"
                                     value={requestData.timeEnd}
@@ -222,7 +200,7 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
                         </>
                         )}
                         <Form.Group className="mb-3 w-75">
-                            <Form.Label>Lý do yêu cầu:</Form.Label>
+                            <Form.Label>Reason:</Form.Label>
                             <Form.Control
                                 as="textarea"
                                 value={requestData.reasonRequest}
@@ -231,7 +209,7 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
                             />
                         </Form.Group>
                         <Form.Group className="mb-3 w-75">
-                            <Form.Label>Thiết bị yêu cầu:</Form.Label>
+                            <Form.Label>Requested equipment:</Form.Label>
                             <Form.Control
                                 as="textarea"
                                 value={requestData.device}
@@ -240,17 +218,17 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
                             />
                         </Form.Group>
                         <Form.Group className="mb-3 w-75">
-                            <Form.Label>Lý do từ chối:</Form.Label>
+                            <Form.Label>Rejection reason:</Form.Label>
                             <Form.Control
                                 as="textarea"
-                                placeholder="Lý do từ chối"
+                                placeholder="Rejection reason"
                                 value={rejectionReason}
                                 onChange={(e) => setRejectionReason(e.target.value)}
-                                disabled={requestData.status !== 'Chưa duyệt'}
+                                disabled={requestData.status !== REQUEST_STATUS.PENDING}
                                 style={{
-                                    backgroundColor: requestData.status !== 'Chưa duyệt' ? '' : '#fff',
-                                    color: requestData.status !== 'Chưa duyệt' ? '#000' : '#888',
-                                    cursor: requestData.status !== 'Chưa duyệt' ? 'not-allowed' : 'text'
+                                    backgroundColor: requestData.status !== REQUEST_STATUS.PENDING ? '' : '#fff',
+                                    color: requestData.status !== REQUEST_STATUS.PENDING ? '#000' : '#888',
+                                    cursor: requestData.status !== REQUEST_STATUS.PENDING ? 'not-allowed' : 'text'
                                 }}
                             />
                         </Form.Group>
@@ -260,13 +238,13 @@ export function RequestDetail({show, id, handleClose, handleConfirm}) {
             </Modal.Body>
             <Modal.Footer>
                 <Button variant="secondary" onClick={handleClose}>
-                    Thoát
+                    Close
                 </Button>
-                <Button variant="danger" className={`${requestData.status !== 'Chưa duyệt' ? 'd-none' : ''}`} onClick={handleReject}>
-                    Từ chối
+                <Button variant="danger" className={`${requestData.status !== REQUEST_STATUS.PENDING ? 'd-none' : ''}`} onClick={handleReject}>
+                    Reject
                 </Button>
-                <Button variant="primary" className={`${requestData.status !== 'Chưa duyệt' ? 'd-none' : ''}`} onClick={handleSubmit} disabled={rejectionReason !== ''}>
-                    Chấp thuận
+                <Button variant="primary" className={`${requestData.status !== REQUEST_STATUS.PENDING ? 'd-none' : ''}`} onClick={handleSubmit} disabled={rejectionReason !== ''}>
+                    Approve
                 </Button>
             </Modal.Footer>
         </Modal>

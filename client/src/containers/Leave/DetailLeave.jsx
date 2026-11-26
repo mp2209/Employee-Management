@@ -11,12 +11,12 @@ const DetailLeave = ({ show, handleClose, handleConfirm, leaveRequest }) => {
     return (
         <Modal show={show} onHide={handleClose}>
             <Modal.Header closeButton>
-                <Modal.Title>Đơn xin nghỉ</Modal.Title>
+                <Modal.Title>Leave request</Modal.Title>
             </Modal.Header>
             <Modal.Body>
                 <Form>
                     <Form.Group className="mb-3" controlId="employeeId">
-                        <Form.Label>Mã nhân viên:</Form.Label>
+                        <Form.Label>Employee ID:</Form.Label>
                         <Form.Control
                             type="text"
                             value={leaveRequest.employeeId}
@@ -25,7 +25,7 @@ const DetailLeave = ({ show, handleClose, handleConfirm, leaveRequest }) => {
                         />
                     </Form.Group>
                     <Form.Group className="mb-3" controlId="employeeName">
-                        <Form.Label>Họ tên:</Form.Label>
+                        <Form.Label>Full name:</Form.Label>
                         <Form.Control
                             type="text"
                             value={leaveRequest.employeeName}
@@ -34,7 +34,7 @@ const DetailLeave = ({ show, handleClose, handleConfirm, leaveRequest }) => {
                         />
                     </Form.Group>
                     {/*<Form.Group className="mb-3" controlId="department">*/}
-                    {/*    <Form.Label>Bộ phận:</Form.Label>*/}
+                    {/*    <Form.Label>Department:</Form.Label>*/}
                     {/*    <Form.Control*/}
                     {/*        type="text"*/}
                     {/*        value={leaveRequest.department}*/}
@@ -43,7 +43,7 @@ const DetailLeave = ({ show, handleClose, handleConfirm, leaveRequest }) => {
                     {/*    />*/}
                     {/*</Form.Group>*/}
                     <Form.Group className="mb-3" controlId="timeStart">
-                        <Form.Label>Bắt đầu:</Form.Label>
+                        <Form.Label>Start:</Form.Label>
                         <Form.Control
                             type="text"
                             value={leaveRequest.timeStart}
@@ -52,7 +52,7 @@ const DetailLeave = ({ show, handleClose, handleConfirm, leaveRequest }) => {
                         />
                     </Form.Group>
                     <Form.Group className="mb-3" controlId="timeEnd">
-                        <Form.Label>Kết thúc:</Form.Label>
+                        <Form.Label>End:</Form.Label>
                         <Form.Control
                             type="text"
                             value={leaveRequest.timeEnd}
@@ -61,7 +61,7 @@ const DetailLeave = ({ show, handleClose, handleConfirm, leaveRequest }) => {
                         />
                     </Form.Group>
                     <Form.Group className="mb-3" controlId="reasonRequest">
-                        <Form.Label>Lý do:</Form.Label>
+                        <Form.Label>Reason:</Form.Label>
                         <Form.Control
                             as="textarea"
                             value={leaveRequest.reasonRequest}
@@ -70,7 +70,7 @@ const DetailLeave = ({ show, handleClose, handleConfirm, leaveRequest }) => {
                         />
                     </Form.Group>
                     <Form.Group className="mb-3" controlId="reasonReject">
-                        <Form.Label>Lý do từ chối:</Form.Label>
+                        <Form.Label>Rejection reason:</Form.Label>
                         <Form.Control
                             as="textarea"
                             value={leaveRequest.reasonReject}
@@ -82,10 +82,10 @@ const DetailLeave = ({ show, handleClose, handleConfirm, leaveRequest }) => {
             </Modal.Body>
             <Modal.Footer>
                 <Button variant="secondary" onClick={handleClose}>
-                    Đóng
+                    Close
                 </Button>
                 <Button variant="primary" onClick={handleConfirm}>
-                    Xác nhận
+                    OK
                 </Button>
             </Modal.Footer>
         </Modal>

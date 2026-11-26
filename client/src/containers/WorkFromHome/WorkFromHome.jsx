@@ -1,8 +1,7 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../services/auth';
 import { employeeApi, requestApi } from '../../services/apiClient';
 import Button from 'react-bootstrap/Button';
-import Modal from 'react-bootstrap/Modal';
 import Form from 'react-bootstrap/Form';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -39,7 +38,7 @@ const WorkFromHome = () => {
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   };
 
-  // API lấy thông tin user :V
+  // Load the employee profile
   useEffect(() => {
     const fetchData = async () => {
         try {
@@ -54,7 +53,7 @@ const WorkFromHome = () => {
         }
     };
     fetchData();
-  }, []);
+  }, [userId]);
 
   const handleDateChange = (date, name) => {
     const startDate = new Date(date);
@@ -80,15 +79,12 @@ const WorkFromHome = () => {
 
   const wfhInfo = {
     "employeeId": userData.id, 
-    "managerId": "2", 
     "employeeName": userData.name,
     "requestType": "WFH", 
     "timeStart": formatDateTime(new Date(wfhData.time_start)),
     "timeEnd": formatDateTime(new Date(wfhData.time_end)),
     "reasonRequest": wfhData.reason,
-    "device": wfhData.equipmentList,
-    "status": "Chưa duyệt",
-    "reasonReject": ""
+    "device": wfhData.equipmentList
   }
 
   const handleSubmit = async (event) => {
@@ -96,14 +92,14 @@ const WorkFromHome = () => {
     const timeStart = new Date(wfhData.time_start);
     setErrorTimeStart('');
     if (timeStart < today) {
-      setErrorTimeStart('Ngày không được nhỏ hơn ngày hiện tại.');
+      setErrorTimeStart('The date cannot be in the past.');
       return;
     }
-    // API gửi request
+    // Submit the request
     try {
-      const response = await requestApi.post(`/`, wfhInfo);
+      const response = await requestApi.post('', wfhInfo);
       if (response.status === 200) {
-          alert('Gửi yêu cầu thành công');
+          alert('Request submitted');
       } else {
           const message = response.data.message || 'An error occurred while login';
           alert(message);
@@ -129,7 +125,7 @@ const WorkFromHome = () => {
               <div className='wfh-info-content'>
                 <Form>
                   <Form.Group className="mb-3">
-                    <Form.Label className='fw-bold'>Họ tên:</Form.Label>
+                    <Form.Label className='fw-bold'>Full name:</Form.Label>
                     <Form.Control
                         type="text"
                         value={userData.name}
@@ -137,7 +133,7 @@ const WorkFromHome = () => {
                     />
                   </Form.Group>
                   <Form.Group className="mb-3">
-                    <Form.Label className='fw-bold'>Bộ phận:</Form.Label>
+                    <Form.Label className='fw-bold'>Department:</Form.Label>
                     <Form.Control
                         type="text"
                         value={userData.department}
@@ -145,7 +141,7 @@ const WorkFromHome = () => {
                     />
                   </Form.Group>
                   <Form.Group className="mb-3">
-                    <Form.Label className='fw-bold'>Số điện thoại:</Form.Label>
+                    <Form.Label className='fw-bold'>Phone number:</Form.Label>
                     <Form.Control
                         type="text"
                         value={userData.phoneNumber}
@@ -153,7 +149,7 @@ const WorkFromHome = () => {
                     />
                   </Form.Group>
                   <Form.Group className="mb-3">
-                    <Form.Label className="row fw-bold">Ngày:</Form.Label>
+                    <Form.Label className="row fw-bold">Date:</Form.Label>
                     <DatePicker
                         name = 'time_start'
                         selected={wfhData.time_start}
@@ -165,25 +161,25 @@ const WorkFromHome = () => {
                     {errorTimeStart && <div className="text-danger mx-3">{errorTimeStart}</div>}
                   </Form.Group>
                   <Form.Group className="mb-3">
-                    <Form.Label className="row fw-bold">Lý do:</Form.Label>
+                    <Form.Label className="row fw-bold">Reason:</Form.Label>
                     <Form.Control
                       name = 'reason'
                       as="textarea"
                       rows="3"
-                      placeholder="Lý do"
+                      placeholder="Reason"
                       onChange={handleChange}
                       required
                       style={{ backgroundColor: '#fff', color: '#000' }}
                     />
                   </Form.Group>
                   <Form.Group className="mb-3">
-                    <Form.Label className="row fw-bold">Thiết bị:</Form.Label>
+                    <Form.Label className="row fw-bold">Equipment:</Form.Label>
                     <div className='mb-2'>
                       <input className="form-check-input me-2" type="radio" id="false"
                             onClick={() => setEquipment(false)}
                             checked={equipment === false}/>
                       <label className="form-check-label" htmlFor = "false" onClick={() => setEquipment(false)}>
-                        Tôi đã có thiết bị đáp ứng nhu cầu công việc
+                        I already have the equipment I need
                       </label>
                     </div>
                     <div className='mt-2'>
@@ -191,17 +187,17 @@ const WorkFromHome = () => {
                             onClick={() => setEquipment(true)}
                             checked={equipment === true}/>
                       <label className="form-check-label" htmlFor = "true">
-                        Tôi cần công ty hỗ trợ thiết bị
+                        I need equipment from the company
                       </label>
                     </div>
                   </Form.Group>
                   <Form.Group className="mb-3">
-                    <Form.Label className="row fw-bold">Loại thiết bị bạn cần cho công việc làm tại nhà:</Form.Label>
+                    <Form.Label className="row fw-bold">Equipment you need to work from home:</Form.Label>
                     <Form.Control
                       name = 'equipmentList'
                       as="textarea"
                       rows="3"
-                      placeholder="Danh sách thiết bị (các thiết bị ngăn cách bởi dấu ,)"
+                      placeholder="Equipment list, separated by commas"
                       onChange={handleChange}
                       disabled={!equipment}
                       required
@@ -214,7 +210,7 @@ const WorkFromHome = () => {
                     />
                   </Form.Group>
                 </Form>
-                <Button type='submit'>Gửi</Button>
+                <Button type='submit'>Submit</Button>
               </div>
           </div>
         </form>

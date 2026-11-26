@@ -2,15 +2,12 @@ package com.example.rewardpoint.model;
 
 import lombok.Data;
 import org.bson.types.ObjectId;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.Date;
 
+/** One wallet movement: positive {@code pointsSent} is a credit, negative is a debit. */
 @Data
-@Document(collection = "historyPoints")
 public class HistoryPoint {
-    @Id
     private ObjectId id;
     private Long managerId;
     private Long pointsSent;

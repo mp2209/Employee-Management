@@ -1,6 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { NavLink, Navigate, Link } from 'react-router-dom';
-import { Form, FormControl, Button } from 'react-bootstrap';
+import React from 'react';
+import { NavLink } from 'react-router-dom';
 
 const Footer = () => {
     return (

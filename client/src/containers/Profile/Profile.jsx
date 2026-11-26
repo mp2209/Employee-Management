@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Button } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
 import Header from '../Header/Header';
 import Footer from '../Footer/Footer';
 import { useAuth } from '../../services/auth';
@@ -22,7 +23,7 @@ const Profile = () => {
                 const [empRes, pointRes, voucherRes] = await Promise.allSettled([
                     employeeApi.get(`/${userId}`),
                     pointApi.get(`/${userId}`),
-                    voucherApi.get(`/api/v2.1/customers/${userId}/vouchers`),
+                    voucherApi.get(`/customers/${userId}/vouchers`),
                 ]);
                 if (cancelled) return;
                 if (empRes.status === 'fulfilled') setEmployee(empRes.value.data);
@@ -52,17 +53,17 @@ const Profile = () => {
                         </div>
 
                         <div className="point row" align="center">
-                            <h5> Điểm </h5>
+                            <h5> Points </h5>
                             <h4>{point.totalPoint ?? 0}</h4>
 
                             <div className="col-6">
                                 <Button variant="primary" onClick={handleShow}>
-                                    {role === 'Manager' ? 'Lịch sử cho điểm' : 'Lịch sử nhận điểm'}
+                                    Points history
                                 </Button>
                             </div>
                             {role === 'Manager' && (
                                 <div className="col">
-                                    <a href="give-point" className="btn btn-success">Cho điểm</a>
+                                    <Link to="/give-point" className="btn btn-success">Give points</Link>
                                 </div>
                             )}
                         </div>
@@ -71,17 +72,17 @@ const Profile = () => {
                     <div className="col-8">
                         <div className="row info">
                             <div align="right">
-                                <a href="/edit-profile" className="btn btn-primary">Chỉnh sửa</a>
+                                <Link to="/edit-profile" className="btn btn-primary">Edit</Link>
                             </div>
 
                             <table className="info-table table table-bordered">
                                 <tbody>
-                                    <tr><td className="title">Ngày sinh:</td><td>{employee.birthDate}</td></tr>
-                                    <tr><td className="title">Số điện thoại:</td><td>{employee.phoneNumber}</td></tr>
-                                    <tr><td className="title">Địa chỉ:</td><td>{employee.address}</td></tr>
-                                    <tr><td className="title">CCCD:</td><td>{employee.identifyId}</td></tr>
-                                    <tr><td className="title">Mã số thuế:</td><td>{employee.taxNumber}</td></tr>
-                                    <tr><td className="title">STK ngân hàng:</td><td>{employee.bankNumber}</td></tr>
+                                    <tr><td className="title">Date of birth:</td><td>{employee.birthDate}</td></tr>
+                                    <tr><td className="title">Phone number:</td><td>{employee.phoneNumber}</td></tr>
+                                    <tr><td className="title">Address:</td><td>{employee.address}</td></tr>
+                                    <tr><td className="title">ID card number:</td><td>{employee.identifyId}</td></tr>
+                                    <tr><td className="title">Tax number:</td><td>{employee.taxNumber}</td></tr>
+                                    <tr><td className="title">Bank account:</td><td>{employee.bankNumber}</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -89,16 +90,16 @@ const Profile = () => {
                 </div>
 
                 <div className="voucher-history">
-                    <h5>Danh sách voucher đã đổi</h5>
+                    <h5>Redeemed vouchers</h5>
                     <hr />
                     {error && <div className="alert alert-warning">{error}</div>}
                     <table className="table table-hover voucher-table">
                         <thead>
                             <tr>
-                                <th scope="col">Tên Voucher</th>
-                                <th scope="col">Mã Voucher</th>
-                                <th scope="col">Nội dung</th>
-                                <th scope="col">Ngày hết hạn</th>
+                                <th scope="col">Voucher</th>
+                                <th scope="col">Code</th>
+                                <th scope="col">Description</th>
+                                <th scope="col">Expires</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -122,14 +123,14 @@ const Profile = () => {
 
             <Modal show={show} onHide={handleClose}>
                 <Modal.Header>
-                    <Modal.Title><b>Lịch sử nhận điểm</b></Modal.Title>
+                    <Modal.Title><b>Points history</b></Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
                     <table className="table">
                         <thead>
                             <tr>
-                                <th>Điểm nhận được</th>
-                                <th>Lời nhắn</th>
+                                <th>Points</th>
+                                <th>Message</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -137,11 +138,11 @@ const Profile = () => {
                                 point.historyPoints.map((pnt) => (
                                     <tr key={pnt.id ?? `${pnt.dateSent}-${pnt.message}`}>
                                         <td>{pnt.pointsSent}</td>
-                                        <td>{pnt.message || 'Không có lời nhắn'}</td>
+                                        <td>{pnt.message || 'No message'}</td>
                                     </tr>
                                 ))
                             ) : (
-                                <tr><td colSpan="2">Không có dữ liệu</td></tr>
+                                <tr><td colSpan="2">No data</td></tr>
                             )}
                         </tbody>
                     </table>

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import { AUTH_EXPIRED_EVENT } from './apiClient';
 
 const AuthContext = createContext(null);
 
@@ -48,6 +49,12 @@ export const AuthProvider = ({ children }) => {
     const logout = useCallback(() => {
         setAuth({ isLoggedIn: false, role: '', userId: '', token: '' });
     }, []);
+
+    // The API client signals an expired/invalid token; drop the session so the user logs in again.
+    useEffect(() => {
+        window.addEventListener(AUTH_EXPIRED_EVENT, logout);
+        return () => window.removeEventListener(AUTH_EXPIRED_EVENT, logout);
+    }, [logout]);
 
     const value = useMemo(
         () => ({ ...auth, login, logout }),

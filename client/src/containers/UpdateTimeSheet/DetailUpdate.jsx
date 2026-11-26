@@ -30,12 +30,12 @@ export function DetailUpdate({ show, id, handleClose, handleConfirm }) {
     return (
         <Modal show={show} onHide={handleClose}>
             <Modal.Header closeButton>
-                <Modal.Title>Thêm thời gian làm việc</Modal.Title>
+                <Modal.Title>Timesheet correction</Modal.Title>
             </Modal.Header>
             <Modal.Body>
                 <Form>
                     <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
-                        <Form.Label>Mã nhân viên:</Form.Label>
+                        <Form.Label>Employee ID:</Form.Label>
                         <Form.Control
                             type="text"
                             value={updateInfo.employeeId || ''}
@@ -45,7 +45,7 @@ export function DetailUpdate({ show, id, handleClose, handleConfirm }) {
                         />
                     </Form.Group>
                     <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
-                        <Form.Label>Họ tên:</Form.Label>
+                        <Form.Label>Full name:</Form.Label>
                         <Form.Control
                             type="text"
                             value={updateInfo.employeeName || ''}
@@ -55,7 +55,7 @@ export function DetailUpdate({ show, id, handleClose, handleConfirm }) {
                         />
                     </Form.Group>
                     <Form.Group className="mb-3" controlId="exampleForm.ControlInput2">
-                        <Form.Label>Cập nhật ngày:</Form.Label>
+                        <Form.Label>Date:</Form.Label>
                         <Form.Control
                             type="text"
                             value={updateInfo.day || ''}
@@ -64,7 +64,7 @@ export function DetailUpdate({ show, id, handleClose, handleConfirm }) {
                         />
                     </Form.Group>
                     <Form.Group className="mb-3" controlId="exampleForm.ControlInput2">
-                        <Form.Label>Bắt đầu:</Form.Label>
+                        <Form.Label>Start:</Form.Label>
                         <Form.Control
                             type="text"
                             value={updateInfo.timeStart || ''}
@@ -73,7 +73,7 @@ export function DetailUpdate({ show, id, handleClose, handleConfirm }) {
                         />
                     </Form.Group>
                     <Form.Group className="mb-3" controlId="exampleForm.ControlInput2">
-                        <Form.Label>Kết thúc:</Form.Label>
+                        <Form.Label>End:</Form.Label>
                         <Form.Control
                             type="text"
                             value={updateInfo.timeEnd || ''}
@@ -82,7 +82,7 @@ export function DetailUpdate({ show, id, handleClose, handleConfirm }) {
                         />
                     </Form.Group>
                     <Form.Group className="mb-3 d-none" controlId="exampleForm.ControlInput2">
-                        <Form.Label>Lý do từ chối:</Form.Label>
+                        <Form.Label>Rejection reason:</Form.Label>
                         <Form.Control
                             as="textarea"
                             value={updateInfo.reasonReject || ''}
@@ -94,10 +94,10 @@ export function DetailUpdate({ show, id, handleClose, handleConfirm }) {
             </Modal.Body>
             <Modal.Footer>
                 <Button variant="secondary" onClick={handleClose}>
-                    Thoát
+                    Close
                 </Button>
                 <Button variant="primary" onClick={handleConfirm}>
-                    Xác nhận
+                    OK
                 </Button>
             </Modal.Footer>
         </Modal>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { userApi } from '../../services/apiClient';
+import Alert from 'react-bootstrap/Alert';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 
@@ -8,27 +9,30 @@ import Footer from '../Footer/Footer';
 import RightSidebar from '../RightSidebar/RightSidebar';
 import './CreateAccount.scss';
 
+const EMPTY_FORM = {
+    username: '',
+    name: '',
+    gender: '',
+    taxNumber: '',
+    identifyId: '',
+    position: '',
+    department: ''
+};
+
 const CreateAccount = () => {
-    const [formData, setFormData] = useState({
-        username: '',
-        name: '',
-        gender: '',
-        taxNumber: '',
-        identifyId: '',
-        position: '',
-        department: ''
-    });
+    const [formData, setFormData] = useState(EMPTY_FORM);
+    const [created, setCreated] = useState(null);
+    const [errorMessage, setErrorMessage] = useState('');
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData({
-            ...formData,
-            [name]: value
-        });
+        setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setCreated(null);
+        setErrorMessage('');
         const data = {
             user: {
                 status: 'Active',
@@ -52,12 +56,15 @@ const CreateAccount = () => {
         };
 
         try {
-            const response = await userApi.post('/', data);
-            alert("Tạo tài khoản thành công!");
+            const { data: response } = await userApi.post('', data);
+            // The temporary password is returned only once; the manager hands it to the employee.
+            setCreated({ username: response.user.username, password: response.temporaryPassword });
+            setFormData(EMPTY_FORM);
         } catch (error) {
-            console.error('Error creating user:', error);
-            alert(`Tạo tài khoản thất bại: ${error.response ? error.response.data.message : error.message}`);
+            setErrorMessage(`Could not create the account: ${error.message}`);
         }
+        // The result banner sits above the form; make sure it is visible.
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     return (
@@ -72,6 +79,15 @@ const CreateAccount = () => {
                     </div>
                     <div className='wfh-info'>
                         <div className='wfh-info-content'>
+                            {created && (
+                                <Alert variant="success" onClose={() => setCreated(null)} dismissible>
+                                    <Alert.Heading>Account created</Alert.Heading>
+                                    <p className="mb-1">Username: <b>{created.username}</b></p>
+                                    <p className="mb-1">Temporary password: <code className="fs-5">{created.password}</code></p>
+                                    <small>This password is shown only once. Share it with the employee now.</small>
+                                </Alert>
+                            )}
+                            {errorMessage && <Alert variant="danger">{errorMessage}</Alert>}
                             <Form onSubmit={handleSubmit}>
                                 <Form.Group className="mb-3" controlId="formUsername">
                                     <Form.Label className='fw-bold'>Username:</Form.Label>
@@ -80,40 +96,42 @@ const CreateAccount = () => {
                                         name="username"
                                         value={formData.username}
                                         onChange={handleChange}
+                                        required
                                     />
                                 </Form.Group>
                                 <Form.Group className="mb-3" controlId="formName">
-                                    <Form.Label className='fw-bold'>Họ tên:</Form.Label>
+                                    <Form.Label className='fw-bold'>Full name:</Form.Label>
                                     <Form.Control
                                         type="text"
                                         name="name"
                                         value={formData.name}
                                         onChange={handleChange}
+                                        required
                                     />
                                 </Form.Group>
                                 <Form.Group className="mb-3" controlId="formGender">
-                                    <Form.Label className="fw-bold">Giới tính:</Form.Label>
+                                    <Form.Label className="fw-bold">Gender:</Form.Label>
                                     <div>
                                         <Form.Check
                                             type="radio"
-                                            label="Nam"
+                                            label="Male"
                                             name="gender"
-                                            value="Nam"
-                                            checked={formData.gender === 'Nam'}
+                                            value="Male"
+                                            checked={formData.gender === 'Male'}
                                             onChange={handleChange}
                                         />
                                         <Form.Check
                                             type="radio"
-                                            label="Nữ"
+                                            label="Female"
                                             name="gender"
-                                            value="Nữ"
-                                            checked={formData.gender === 'Nữ'}
+                                            value="Female"
+                                            checked={formData.gender === 'Female'}
                                             onChange={handleChange}
                                         />
                                     </div>
                                 </Form.Group>
                                 <Form.Group className="mb-3" controlId="formTaxNumber">
-                                    <Form.Label className='fw-bold'>Mã số thuế:</Form.Label>
+                                    <Form.Label className='fw-bold'>Tax number:</Form.Label>
                                     <Form.Control
                                         type="number"
                                         name="taxNumber"
@@ -122,16 +140,17 @@ const CreateAccount = () => {
                                     />
                                 </Form.Group>
                                 <Form.Group className="mb-3" controlId="formIdentifyId">
-                                    <Form.Label className='fw-bold'>CMND/CCCD:</Form.Label>
+                                    <Form.Label className='fw-bold'>ID card number:</Form.Label>
                                     <Form.Control
                                         type="number"
                                         name="identifyId"
                                         value={formData.identifyId}
                                         onChange={handleChange}
+                                        required
                                     />
                                 </Form.Group>
                                 <Form.Group className="mb-3" controlId="formPosition">
-                                    <Form.Label className='fw-bold'>Vị trí:</Form.Label>
+                                    <Form.Label className='fw-bold'>Position:</Form.Label>
                                     <Form.Control
                                         type="text"
                                         name="position"
@@ -140,7 +159,7 @@ const CreateAccount = () => {
                                     />
                                 </Form.Group>
                                 <Form.Group className="mb-3" controlId="formDepartment">
-                                    <Form.Label className='fw-bold'>Bộ phận:</Form.Label>
+                                    <Form.Label className='fw-bold'>Department:</Form.Label>
                                     <Form.Control
                                         type="text"
                                         name="department"
@@ -148,14 +167,14 @@ const CreateAccount = () => {
                                         onChange={handleChange}
                                     />
                                 </Form.Group>
-                                <Button type="submit">Tạo</Button>
+                                <Button type="submit">Create</Button>
                             </Form>
                         </div>
                     </div>
                 </div>
                 <RightSidebar />
             </section>
-            <Footer /> 
+            <Footer />
         </React.Fragment>
     );
 };

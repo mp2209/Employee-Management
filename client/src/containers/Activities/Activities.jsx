@@ -2,16 +2,20 @@ import React, { useState, useEffect } from 'react';
 import Header from '../Header/Header';
 import RightSidebar from '../RightSidebar/RightSidebar';
 import Footer from '../Footer/Footer';
-import { STRAVA } from '../../services/apiClient';
+import { activityApi, STRAVA } from '../../services/apiClient';
 import './Activities.scss';
 
-// IMPORTANT: Strava's OAuth token exchange uses a `client_secret` which must
-// NEVER be embedded in the browser. The exchange should be proxied through the
-// API gateway (`/api/activities/strava/token`). This component now calls that
-// gateway endpoint instead of Strava directly.
+// Strava OAuth: the browser obtains an authorization code, and rewardPoint-service exchanges
+// it for an access token (POST /api/activities/strava/token), because the exchange needs the
+// client secret, which must never be shipped to the browser.
 
 const TOKEN_STORAGE_KEY = 'strava_access_token';
 const TOKEN_EXPIRY_KEY = 'strava_token_expiry';
+
+const stravaAuthUrl =
+    `https://www.strava.com/oauth/authorize?client_id=${STRAVA.clientId}` +
+    `&response_type=code&redirect_uri=${encodeURIComponent(STRAVA.redirectUri)}` +
+    `&scope=${encodeURIComponent(STRAVA.scope)}`;
 
 const Activities = () => {
     const [accessToken, setAccessToken] = useState(null);
@@ -19,39 +23,9 @@ const Activities = () => {
     const [activityList, setActivityList] = useState([]);
     const [error, setError] = useState(null);
 
-    const stravaAuthUrl =
-        `https://www.strava.com/oauth/authorize?client_id=${STRAVA.clientId}` +
-        `&response_type=code&redirect_uri=${encodeURIComponent(STRAVA.redirectUri)}` +
-        `&scope=${encodeURIComponent(STRAVA.scope)}`;
-
-    const redirectToStrava = () => {
-        window.location.href = stravaAuthUrl;
-    };
-
-    const exchangeCode = async (authorizationCode) => {
-        try {
-            const response = await fetch('/api/activities/strava/token', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code: authorizationCode }),
-            });
-            const data = await response.json();
-            if (data.access_token) {
-                const expiry = Date.now() + data.expires_in * 1000;
-                setAccessToken(data.access_token);
-                setTokenExpiry(expiry);
-                localStorage.setItem(TOKEN_STORAGE_KEY, data.access_token);
-                localStorage.setItem(TOKEN_EXPIRY_KEY, String(expiry));
-                window.history.replaceState({}, document.title, STRAVA.redirectUri);
-            } else {
-                setError(data.message || 'Failed to obtain access token');
-            }
-        } catch (err) {
-            setError(err.message);
-        }
-    };
-
     useEffect(() => {
+        if (!STRAVA.clientId) return;
+
         const storedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
         const storedExpiry = Number(localStorage.getItem(TOKEN_EXPIRY_KEY));
         if (storedToken && storedExpiry && Date.now() < storedExpiry) {
@@ -61,24 +35,37 @@ const Activities = () => {
         }
         localStorage.removeItem(TOKEN_STORAGE_KEY);
         localStorage.removeItem(TOKEN_EXPIRY_KEY);
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        if (code) {
-            exchangeCode(code);
-        } else {
-            redirectToStrava();
+
+        const code = new URLSearchParams(window.location.search).get('code');
+        if (!code) {
+            window.location.href = stravaAuthUrl;
+            return;
         }
+
+        (async () => {
+            try {
+                const { data } = await activityApi.post('/strava/token', { code });
+                const expiry = Date.now() + data.expires_in * 1000;
+                setAccessToken(data.access_token);
+                setTokenExpiry(expiry);
+                localStorage.setItem(TOKEN_STORAGE_KEY, data.access_token);
+                localStorage.setItem(TOKEN_EXPIRY_KEY, String(expiry));
+                window.history.replaceState({}, document.title, STRAVA.redirectUri);
+            } catch (err) {
+                setError(err.message);
+            }
+        })();
     }, []);
 
     useEffect(() => {
-        if (!accessToken || !tokenExpiry || Date.now() >= tokenExpiry) {
-            return;
+        if (!accessToken || !tokenExpiry || Date.now() >= tokenExpiry || !STRAVA.clubId) {
+            return undefined;
         }
         let cancelled = false;
         (async () => {
             try {
                 const response = await fetch(
-                    'https://www.strava.com/api/v3/clubs/1278939/activities',
+                    `https://www.strava.com/api/v3/clubs/${STRAVA.clubId}/activities`,
                     { headers: { Authorization: `Bearer ${accessToken}` } }
                 );
                 const data = await response.json();
@@ -90,7 +77,7 @@ const Activities = () => {
         return () => { cancelled = true; };
     }, [accessToken, tokenExpiry]);
 
-    if (!STRAVA.clientId) {
+    if (!STRAVA.clientId || !STRAVA.clubId) {
         return (
             <React.Fragment>
                 <Header />
@@ -98,8 +85,8 @@ const Activities = () => {
                     <div className="content-frame p-4">
                         <div className="alert alert-warning">
                             Strava integration is not configured. Set
-                            <code> REACT_APP_STRAVA_CLIENT_ID </code> in your
-                            <code> .env </code> file to enable Activities.
+                            <code> STRAVA_CLIENT_ID </code>, <code> STRAVA_CLIENT_SECRET </code> and
+                            <code> STRAVA_CLUB_ID </code> in <code>.env</code> to enable Activities.
                         </div>
                     </div>
                     <RightSidebar />
@@ -119,8 +106,8 @@ const Activities = () => {
                     </div>
                     {error && <div className="alert alert-danger m-3">{error}</div>}
                     <div className="activities-list">
-                        {activityList.map((item) => (
-                            <div className="activity-card" key={item.id}>
+                        {activityList.map((item, index) => (
+                            <div className="activity-card" key={item.id ?? index}>
                                 <div className="d-flex align-items justify-content-between px-2 py-2 border-bottom border-dark">
                                     <span className="card-title">
                                         {item.athlete?.lastname} {item.athlete?.firstname}

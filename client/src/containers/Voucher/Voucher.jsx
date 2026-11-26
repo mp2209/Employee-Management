@@ -10,7 +10,6 @@ import './Voucher.scss';
 
 const Voucher = () => {
     const { role, userId } = useAuth();
-    const [show, setShow] = useState(false);
     const [mainCampaigns, setMainCampaigns] = useState([]);
     const [subCampaigns, setSubCampaigns] = useState([]);
     const [activeMainCampaign, setActiveMainCampaign] = useState(null);
@@ -43,7 +42,7 @@ const Voucher = () => {
 
         try {
             const response = await voucherApi.post(
-                `/api/v2.1/campaigns/${selectedSubCampaignId}/vouchers/batch`,
+                `/campaigns/${selectedSubCampaignId}/vouchers/batch`,
                 requestBody
             );
             if (response.status === 202) {
@@ -62,8 +61,8 @@ const Voucher = () => {
         (async () => {
             try {
                 const [mainRes, subRes] = await Promise.all([
-                    voucherApi.get('/api/v2.1/campaigns?per_page=10'),
-                    voucherApi.get('/api/v2.1/campaigns/sub?per_page=20'),
+                    voucherApi.get('/campaigns?per_page=10'),
+                    voucherApi.get('/campaigns/sub?per_page=20'),
                 ]);
                 if (cancelled) return;
                 setMainCampaigns(mainRes.data.filter((c) => c.type === 'MainCampaign'));
@@ -87,9 +86,6 @@ const Voucher = () => {
         };
     }, [userId]);
 
-    const handleClose = useCallback(() => setShow(false), []);
-    const handleShow = useCallback(() => setShow(true), []);
-
     const handleSelect = useCallback((selectedKey) => {
         setActiveMainCampaign(selectedKey);
     }, []);
@@ -101,11 +97,11 @@ const Voucher = () => {
         }
         try {
             const { data } = await voucherApi.get(
-                `/api/v2.1/campaigns/${subCampaignId}/vouchers?per_page=50`
+                `/campaigns/${subCampaignId}/vouchers?per_page=50`
             );
             const availableVouchers = data.filter((v) => v.status === 'created');
             if (availableVouchers.length === 0) {
-                alert('Đã hết voucher!');
+                alert('This voucher is out of stock.');
                 return;
             }
             const randomVoucher =
@@ -114,7 +110,7 @@ const Voucher = () => {
 
             try {
                 await voucherApi.put(
-                    `/api/v2.1/customers/${userId}/vouchers`,
+                    `/customers/${userId}/vouchers`,
                     { vouchers: [voucherCode] }
                 );
             } catch (error) {
@@ -154,7 +150,7 @@ const Voucher = () => {
                     <div className="d-flex align-items-center m-3 update-timesheet-header">
                         <div className="col-md-6">
                             <div className="mb-3">
-                                <h5 className="card-title">Danh sách Voucher</h5>
+                                <h5 className="card-title">Vouchers</h5>
                             </div>
                         </div>
                     </div>
@@ -170,12 +166,12 @@ const Voucher = () => {
                     <table className="table table-hover">
                         <thead>
                             <tr>
-                                <th scope="col">Tên Voucher</th>
-                                <th scope="col">Nội dung</th>
-                                <th scope="col">Giá trị thẻ quà tặng</th>
-                                <th scope="col">Số lượng Voucher</th>
-                                <th scope="col">Ngày hết hạn</th>
-                                {role === 'Employee' && <th scope="col">Hành động</th>}
+                                <th scope="col">Voucher</th>
+                                <th scope="col">Description</th>
+                                <th scope="col">Gift card value</th>
+                                <th scope="col">Available</th>
+                                <th scope="col">Expires</th>
+                                {role && <th scope="col">Action</th>}
                             </tr>
                         </thead>
                         <tbody>
@@ -193,7 +189,7 @@ const Voucher = () => {
                                     {role === 'Employee' && (
                                         <td>
                                             <Button onClick={() => handleRedeem(sub.id, sub.gift_card_value)}>
-                                                Đổi Voucher
+                                                Redeem
                                             </Button>
                                         </td>
                                     )}
@@ -205,7 +201,7 @@ const Voucher = () => {
                                                     setShowAddVoucherModal(true);
                                                 }}
                                             >
-                                                Thêm Voucher
+                                                Add vouchers
                                             </Button>
                                         </td>
                                     )}
@@ -216,12 +212,12 @@ const Voucher = () => {
 
                     <Modal show={showAddVoucherModal} onHide={() => setShowAddVoucherModal(false)}>
                         <Modal.Header closeButton>
-                            <Modal.Title>Thêm Voucher</Modal.Title>
+                            <Modal.Title>Add vouchers</Modal.Title>
                         </Modal.Header>
                         <Modal.Body>
                             <Form>
                                 <Form.Group className="mb-3" controlId="voucherCode">
-                                    <Form.Label>Mã Voucher</Form.Label>
+                                    <Form.Label>Code prefix</Form.Label>
                                     <Form.Control
                                         type="text"
                                         value={voucherFormData.prefix}
@@ -232,7 +228,7 @@ const Voucher = () => {
                                     />
                                 </Form.Group>
                                 <Form.Group className="mb-3" controlId="voucherValue">
-                                    <Form.Label>Giá trị Voucher</Form.Label>
+                                    <Form.Label>Voucher value</Form.Label>
                                     <Form.Control
                                         type="number"
                                         value={voucherFormData.giftCardValue}
@@ -245,7 +241,7 @@ const Voucher = () => {
                                     />
                                 </Form.Group>
                                 <Form.Group className="mb-3" controlId="numberOfVouchers">
-                                    <Form.Label>Số lượng Voucher</Form.Label>
+                                    <Form.Label>Quantity</Form.Label>
                                     <Form.Control
                                         type="number"
                                         value={voucherFormData.size}
@@ -261,7 +257,7 @@ const Voucher = () => {
                                 Close
                             </Button>
                             <Button variant="primary" onClick={handleAddVoucher}>
-                                Thêm Voucher
+                                Add vouchers
                             </Button>
                         </Modal.Footer>
                     </Modal>
